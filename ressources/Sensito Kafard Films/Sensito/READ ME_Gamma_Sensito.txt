@@ -1,0 +1,23 @@
+Sensito
+=======
+
+Pré-requis:
+-----------
+
+Sur Windows, installer .NET Desktop Runtime 7:
+https://dotnet.microsoft.com/en-us/download/dotnet/7.0
+
+Start : Sensito.Gui.exe
+
+Releases:
+---------
+
+https://gitlab.com/Creak/sensito/-/releases
+
+Documentation:
+--------------
+
+https://gitlab.com/Creak/sensito/-/blob/main/README.md
+
+
+

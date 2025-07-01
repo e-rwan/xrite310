@@ -416,8 +416,9 @@ class CurveWidget(QWidget):
         self.ax_sensito.set_xlabel("Measurement")
         self.ax_sensito.set_ylabel("Density")
         self.ax_sensito.set_xticks(list(range(1, 22)))
-        # self.ax_sensito.set_title("Density curves")
         self.ax_sensito.grid(True, linestyle='--', linewidth=0.5, alpha=0.2)
+
+        y_max = float('1')
         for key, values in self.manager.data.items():
             if not any(values):
                 continue
@@ -437,7 +438,12 @@ class CurveWidget(QWidget):
                     color=color_name, 
                     marker='.', 
                     label=label, 
-                    alpha=0.5)
+                    alpha=0.5
+                )
+                y_max = max(y_max, max(y_vals))
+
+        # set graph y axis length
+        self.ax_sensito.set_ylim(0.0, y_max+(y_max*0.1))
 
         if self.ax_sensito.get_lines():
             self.ax_sensito.legend()
@@ -458,6 +464,7 @@ class CurveWidget(QWidget):
         self.ax_deltad.set_title("Delta Curves")
         self.ax_deltad.grid(True, linestyle='--', linewidth=0.5, alpha=0.2)
 
+        y_max = float('0.01')
         for abcd in self.inputs_color_map:
             meas_key = f"meas_{abcd}"
             ref_key = f"ref_{abcd}"
@@ -490,6 +497,12 @@ class CurveWidget(QWidget):
                     label=label,
                     alpha=0.8
                 )
+            y_max = max(y_max, max(delta_vals))
+
+        # set graph y axis length
+        y_axis = y_max+y_max*0.2
+        self.ax_deltad.set_ylim(0,y_axis)
+        self.ax_deltad.set_yticks(list(np.arange(0, y_axis, y_axis/10)))
 
         if self.ax_deltad.get_lines():
             self.ax_deltad.legend()
