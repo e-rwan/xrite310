@@ -28,6 +28,7 @@ class GammaReading:
 	search_range: Range
 	gamma_range: Range
 
+	# str for tooltip
 	def __str__(self):
 		return (
 			f"gamma         : {self.gamma:.2f}\n"
@@ -65,21 +66,6 @@ class GammaAnalyzer:
 		end = min(len(values) - 1, end)
 
 		return Range(start, end)
-		
-
-	def get_derivatives(self, values: List[float]) -> List[float]:
-		""" Calculates central derivatives of a list
-		Args:
-			values (List[float]): List of density values.
-		Returns:
-			derivatives (List[float]): List of centered derivatives
-		"""
-		n = len(values)
-		derivatives = [0.0]
-		for i in range(1, n - 1):
-			derivatives.append(values[i + 1] - values[i - 1])
-		derivatives.append(derivatives[-1])
-		return derivatives
 
 
 	def get_gamma_range(self, values: List[float], search_range: Range, num_steps = NUM_STEPS) -> Range:
@@ -104,6 +90,21 @@ class GammaAnalyzer:
 				best_start = i
 
 		return Range(best_start, best_start + num_steps)
+		
+
+	def get_derivatives(self, values: List[float]) -> List[float]:
+		""" Calculates central derivatives of a list
+		Args:
+			values (List[float]): List of density values.
+		Returns:
+			derivatives (List[float]): List of centered derivatives
+		"""
+		n = len(values)
+		derivatives = [0.0]
+		for i in range(1, n - 1):
+			derivatives.append(values[i + 1] - values[i - 1])
+		derivatives.append(derivatives[-1])
+		return derivatives
 
 
 	def get_gamma(self, gamma_range, values, step_value: float = STEP_VALUE):
@@ -216,5 +217,9 @@ class GammaAnalyzer:
 					round(mean(gr.gamma_range.end for gr in visible_results))
 				)
 			)
+
+		# merge resuts with results_ref
+		for k, v in results_ref.items():
+			results[f"ref_{k}"] = v
 
 		return results

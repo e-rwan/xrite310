@@ -1,15 +1,18 @@
 import os
 import sys
 import subprocess
+import warnings
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QTabBar, QFileDialog,
 )
-import warnings
+
 from ui.curve_ui import CurveWidget
 from ui.communications_ui import CommunicationWidget
+from ui.history_ui import HistoryWidget
+
 from lib.communications import DensitometerReader
 from constants import MEASURES_PATH, ICON_PATH
 
@@ -72,12 +75,17 @@ class MainWindow(QMainWindow):
 
         # Help
         help_menu = menu_bar.addMenu("Aide")
+        # Help > x-rite 310 manual
         xrite_doc_action = help_menu.addAction("x-rite Densitometer Operation Manual")
-        about_action = help_menu.addAction("À propos")
-
-        about_action.triggered.connect(self.show_about_dialog)
         doc_path = os.path.join(os.path.dirname(__file__), "../docs/310-42_310_Densitometer_Operation_Manual_en.pdf")
         xrite_doc_action.triggered.connect(lambda: self.open_pdf(doc_path))
+        # Help > user manual
+        manual_action = help_menu.addAction("Manuel utilisateur")
+        doc_path = os.path.join(os.path.dirname(__file__), "../docs/X-Rite 310 App - user manual.pdf")
+        manual_action.triggered.connect(lambda: self.open_pdf(doc_path))
+        # Help > about
+        about_action = help_menu.addAction("À propos")
+        about_action.triggered.connect(self.show_about_dialog)
 
         self.reader = DensitometerReader()
         self.setWindowTitle("X-Rite 310 - Densitomètre")
@@ -99,6 +107,10 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.com_widget, "Communication")
         self.tabs.tabBar().setTabButton(0, QTabBar.ButtonPosition.RightSide, None)
 
+        #History tab
+        self.file_tab = HistoryWidget()
+        self.tabs.addTab(self.file_tab, "Historic")
+
         # "+" tab at the end
         self.plus_tab = QWidget()
         self.tabs.addTab(self.plus_tab, "+")
@@ -114,7 +126,7 @@ class MainWindow(QMainWindow):
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self.handle_tab_change)
 
-        # set COmmunications as default opened tab
+        # set communications as default opened tab
         self.tabs.setCurrentWidget(self.com_widget)
 
 

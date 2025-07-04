@@ -6,7 +6,7 @@ from datetime import datetime
 import math
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QTextEdit,
+    QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QTextEdit, QFrame, 
     QButtonGroup, QHBoxLayout, QPushButton, QLineEdit, QFileDialog, QInputDialog, QSplitter, QTabWidget
 )
 from PySide6.QtCore import Qt, QEvent
@@ -14,15 +14,16 @@ from PySide6.QtGui import QStandardItemModel
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.ticker import MaxNLocator, FuncFormatter
+from matplotlib.ticker import MaxNLocator, MultipleLocator, FormatStrFormatter
+from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 
 import numpy as np
 
 from lib.curves import CurveManager
-from lib.curves import ColorChannelSet
+from utils.plot_utils import ColorChannelSet, draw_curve_graph
 from lib.communications import DensitometerReader
 from lib.gamma import GammaAnalyzer, GammaReading, Range
-from constants import MEASURES_PATH
+from constants import MEASURES_PATH, COLOR_SET
 
 
 class CurveWidget(QWidget):
@@ -41,10 +42,7 @@ class CurveWidget(QWidget):
         
 
         self.inputs_color_map = ['a', 'b', 'c', 'd']
-        self.color_set = {
-            'vcmy': ColorChannelSet('vcmy', ['grey', 'cyan', 'magenta', 'yellow'], 'abcd'),
-            'vrgb': ColorChannelSet('vrgb', ['grey', 'red', 'green', 'blue'], 'abcd'),
-        }
+        self.color_set = COLOR_SET
 
         self.reader = reader
         self.connect_signals()
@@ -116,10 +114,20 @@ class CurveWidget(QWidget):
         ## Stats bloc
         self.stat_labels = {}
         stats = [
-            "Gamma ref", "Gamma",
-            "Gamma r/c", "Gamma g/m", "Gamma b/y"
+            "Gamma ref", "Gamma ref r/c", "Gamma ref g/m", "Gamma ref b/y", "separator",
+            "Gamma", "Gamma r/c", "Gamma g/m", "Gamma b/y", "separator"
         ]
         for stat_key in stats:
+            # add separator
+            if stat_key == "separator":
+                sep = QFrame()
+                sep.setFrameShape(QFrame.Shape.VLine)
+                sep.setFrameShadow(QFrame.Shadow.Sunken)
+                sep.setLineWidth(1)
+                sep.setContentsMargins(10, 0, 10, 0)
+                self.stats_layout.addWidget(sep)
+                continue
+
             vbox = QVBoxLayout()
             vbox.setSpacing(2)
             vbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -175,6 +183,9 @@ class CurveWidget(QWidget):
         self.sensito_canvas = FigureCanvas(Figure(figsize=(6, 4)))
         self.sensito_canvas.setMinimumWidth(800)
         sensito_graph_layout.addWidget(self.sensito_canvas)
+        # tool bar
+        self.sensito_toolbar = NavigationToolbar(self.sensito_canvas, self)
+        sensito_graph_layout.addWidget(self.sensito_toolbar)
         self.ax_sensito = self.sensito_canvas.figure.add_subplot(111)
         self.sensito_canvas.figure.subplots_adjust(
             left=0.09,
@@ -187,6 +198,9 @@ class CurveWidget(QWidget):
         self.deltad_canvas = FigureCanvas(Figure(figsize=(6, 4)))
         self.deltad_canvas.setMinimumWidth(800)
         deltad_graph_layout.addWidget(self.deltad_canvas)
+        # tool bar
+        self.deltad_toolbar = NavigationToolbar(self.sensito_canvas, self)
+        deltad_graph_layout.addWidget(self.deltad_toolbar)
         self.ax_deltad = self.deltad_canvas.figure.add_subplot(111)
         self.deltad_canvas.figure.subplots_adjust(
             left=0.09,
@@ -411,62 +425,51 @@ class CurveWidget(QWidget):
         """
         Update sensito plot for each visible channel.
         """
-        # sensito curves
-        self.ax_sensito.clear()
-        self.ax_sensito.set_xlim(1, 21)
-        self.ax_sensito.set_xlabel("Measurement")
-        self.ax_sensito.set_ylabel("Density")
-        self.ax_sensito.set_xticks(list(range(1, 22)))
-        self.ax_sensito.grid(True, linestyle='--', linewidth=0.5, alpha=0.2)
-
-        y_max = float('1')
+        curves = {}
         for key, values in self.manager.data.items():
             if not any(values):
                 continue
+
+            prefix, abcd = key.split("_")
+            if not self.channel_checkboxes.get(abcd, QCheckBox()).isChecked():
+                continue
+
             x_vals = [i + 1 for i, v in enumerate(values) if v is not None]
             y_vals = [v for v in values if v is not None]
-            if x_vals and y_vals:
-                prefix, abcd = key.split("_")  # e.g. 'ref_a' -> ['ref', 'a']
-                if not self.channel_checkboxes.get(abcd, QCheckBox()).isChecked():
-                    continue
-                color_letter = self.color_set[self.color_mode].channel_from_abcd(abcd)
-                color_name = self.color_set[self.color_mode].get_color_name(color_letter)
-                label = f"{prefix.capitalize()} {color_letter}"
-                graph_line =  '--' if prefix == "ref" else '-'
-                self.ax_sensito.plot(
-                    x_vals, y_vals, 
-                    linestyle=graph_line, 
-                    color=color_name, 
-                    marker='.', 
-                    label=label, 
-                    alpha=0.5
-                )
-                y_max = max(y_max, max(y_vals))
+            if not x_vals or not y_vals:
+                continue
 
-        # set graph y axis length, ticks and max ticks
-        y_axis = y_max+y_max * 0.2
-        self.ax_sensito.set_ylim(0.0, y_axis)
-        self.ax_sensito.yaxis.set_major_locator(MaxNLocator(nbins=10))
+            color_letter = self.color_set[self.color_mode].channel_from_abcd(abcd)
+            color_name = self.color_set[self.color_mode].get_color_name(color_letter)
+            label = f"{prefix.capitalize()} {color_letter}"
+            linestyle = "--" if prefix == "ref" else "-"
 
-        if self.ax_sensito.get_lines():
-            self.ax_sensito.legend()
+            curves[label] = {
+                "x": x_vals,
+                "y": y_vals,
+                "color": color_name,
+                "linestyle": linestyle,
+            }
+
+        draw_curve_graph(
+            ax=self.ax_sensito,
+            canvas=self.sensito_canvas,
+            curves=curves,
+            title="Density curves",
+            xlabel="Measurement",
+            ylabel="Density",
+        )
+        
+        self.ax_sensito.axvline(x=11, color="black", linestyle="--", linewidth=1.0, alpha=0.2)
         self.sensito_canvas.draw()
 
-        
+            
     def draw_deltad_graph(self):
         """
-        Update delta-d plot (meas - ref) for each visible channel.
+        Update delta-d plot (meas - ref) for each visible channel using draw_curve_graph.
         """
-        self.ax_deltad.clear()
-        self.ax_deltad.set_xlim(1, 21)
-        self.ax_deltad.set_xlabel("Measurement")
-        self.ax_deltad.set_ylabel("Δ Density (meas - ref)")
-        self.ax_deltad.set_xticks(list(range(1, 22)))
-        self.ax_deltad.set_yticks(list(np.arange(0, 5, 0.25)))
-        self.ax_deltad.set_title("Delta Curves")
-        self.ax_deltad.grid(True, linestyle='--', linewidth=0.5, alpha=0.2)
+        curves = {}
 
-        y_max = float('0.01')
         for abcd in self.inputs_color_map:
             meas_key = f"meas_{abcd}"
             ref_key = f"ref_{abcd}"
@@ -479,36 +482,31 @@ class CurveWidget(QWidget):
             if not any(meas_vals) or not any(ref_vals):
                 continue
 
-            delta_vals = []
-            x_vals = []
-
+            x_vals, delta_vals = [], []
             for i, (m, r) in enumerate(zip(meas_vals, ref_vals)):
                 if m is not None and r is not None:
-                    delta_vals.append(abs(m - r))
                     x_vals.append(i + 1)
+                    delta_vals.append(abs(m - r))
 
             if x_vals and delta_vals:
                 color_letter = self.color_set[self.color_mode].channel_from_abcd(abcd)
                 color_name = self.color_set[self.color_mode].get_color_name(color_letter)
                 label = f"Δ {color_letter.upper()}"
-                self.ax_deltad.plot(
-                    x_vals, delta_vals,
-                    linestyle="-",
-                    color=color_name,
-                    marker=".",
-                    label=label,
-                    alpha=0.8
-                )
-            y_max = max(y_max, max(delta_vals))
+                curves[label] = {
+                    "x": x_vals,
+                    "y": delta_vals,
+                    "color": color_name,
+                    "linestyle": "-",
+                }
 
-        # set graph y axis length, ticks and max ticks
-        y_axis = y_max+y_max * 0.2
-        self.ax_deltad.set_ylim(0,y_axis)
-        self.ax_deltad.yaxis.set_major_locator(MaxNLocator(nbins=10))
-
-        if self.ax_deltad.get_lines():
-            self.ax_deltad.legend()
-        self.deltad_canvas.draw()
+        draw_curve_graph(
+            ax=self.ax_deltad,
+            canvas=self.deltad_canvas,
+            curves=curves,
+            title="Delta Curves",
+            xlabel="Measurement",
+            ylabel="Δ Density (meas - ref)"
+        )
 
 
     def update_stats(self):
@@ -552,16 +550,25 @@ class CurveWidget(QWidget):
         else:
             self.stat_labels["Gamma ref"].setText("--")
             self.stat_labels["Gamma ref"].setToolTip("")
+        # single channel ref Gamma
+        for abcd_key, stat_key in zip(['b', 'c', 'd'], ["Gamma ref r/c", "Gamma ref g/m", "Gamma ref b/y"]):
+            ref_key = f"ref_{abcd_key}"
+            if ref_key in results:
+                reading = results[ref_key]
+                self.stat_labels[stat_key].setText(f"{reading.gamma:.2f}")
+                self.stat_labels[stat_key].setToolTip(str(reading))
+            else:
+                self.stat_labels[stat_key].setText("--")
+                self.stat_labels[stat_key].setToolTip("")
+        
         # gamma
         reading_all = results.get("all")
         if reading_all:
             self.stat_labels["Gamma"].setText(f"{reading_all.gamma:.2f}")
             self.stat_labels["Gamma"].setToolTip(str(reading_all))
-            
         else:
             self.stat_labels["Gamma"].setText("--")
             self.stat_labels["Gamma"].setToolTip("")
-
         # single channel Gamma
         for abcd_key, stat_key in zip(['b', 'c', 'd'], ["Gamma r/c", "Gamma g/m", "Gamma b/y"]):
             if abcd_key in visible_channels and abcd_key in results:
@@ -765,4 +772,4 @@ class CurveWidget(QWidget):
         if self.tabs:
             index = self.tabs.indexOf(self)
             self.tabs.setTabText(index, title if title else "Courbes")
-            
+

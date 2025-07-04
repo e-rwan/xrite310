@@ -4,38 +4,8 @@ from PySide6.QtCore import QObject, Signal
 import json
 import time
 from typing import Union
-
-
-class ColorChannelSet:
-    """
-    ColorChannelSet class manage color channels
-    Args:
-        name (str): channel names (e.g. vcmy, vrgb)
-        color_name (list): list or channel color names (e.g. blue, reg, etc...)
-        name (str): channel names (e.g. vcmy, vrgb)
-        abcd_order (str): channel placeholder order (e.g. abcd)
-    """
-    def __init__(self, name: str, color_name: list[str], abcd_order="abcd"):
-
-        self.name = name  # 'vrgb' or 'vcmy'
-        self.order = list(name)
-        self.color_name = color_name  #e.g.  ['grey', 'red', 'green', 'blue']
-        self.channel_to_abcd = dict(zip(self.order, abcd_order))
-        self.abcd_to_channel = dict(zip(abcd_order, self.order))
-
-    def get_color_name(self, channel: str) -> str:
-        try:
-            idx = self.order.index(channel)
-            return self.color_name[idx]
-        except ValueError:
-            return channel
-
-    def abcd_key(self, channel: str) -> str:
-        return self.channel_to_abcd.get(channel) or ""
-
-    def channel_from_abcd(self, abcd: str) -> str:
-        return self.abcd_to_channel.get(abcd) or ""
-
+from utils.plot_utils import ColorChannelSet
+from constants import COLOR_SET
 
 class CurveManager(QObject):
     
@@ -55,10 +25,7 @@ class CurveManager(QObject):
             ]
         }
         
-        self.color_set = {
-            'vcmy': ColorChannelSet('vcmy', ['grey', 'cyan', 'magenta', 'yellow'], 'abcd'),
-            'vrgb': ColorChannelSet('vrgb', ['grey', 'red', 'green', 'blue'], 'abcd'),
-        }
+        self.color_set = COLOR_SET
 
         self.color_mode = 'vrgb'
 
