@@ -21,9 +21,7 @@ class GammaReading:
 	"""
 	Class to contains values related to gamma readings
 	"""
-	global_gamma: float
 	gamma: float
-	gamma_delta: float
 	step_value: float
 	d_min: float
 	d_max: float
@@ -33,8 +31,6 @@ class GammaReading:
 	def __str__(self):
 		return (
 			f"gamma         : {self.gamma:.2f}\n"
-			f"global_gamma  : {self.global_gamma:.2f}\n"
-			f"gamma_delta   : {self.gamma_delta:.2f}\n"
 			f"step_value    : {self.step_value:.2f}\n"
 			f"d_min         : {self.d_min:.2f}\n"
 			f"d_max         : {self.d_max:.2f}\n"
@@ -143,17 +139,12 @@ class GammaAnalyzer:
 
 		search_range = self.get_search_range(values, low_pct, high_pct)
 		gamma_range = self.get_gamma_range(values, search_range)
-		global_gamma_range = Range(search_range.start, search_range.end)
 
 		gamma = self.get_gamma(gamma_range, values, step_value)
-		global_gamma = self.get_gamma(global_gamma_range, values, step_value)
 
-		gamma_delta = abs(gamma - global_gamma)
 
 		return GammaReading(
-			global_gamma=global_gamma,
 			gamma=gamma,
-			gamma_delta=gamma_delta,
 			step_value=step_value,
 			d_min=min(values),
 			d_max=max(values),
@@ -195,9 +186,7 @@ class GammaAnalyzer:
 		if results:
 			visible_results = [gr for ch, gr in results.items() if ch in visible_channels]
 			results["all"] = GammaReading(
-				global_gamma=mean(gr.global_gamma for gr in visible_results),
 				gamma=mean(gr.gamma for gr in visible_results),
-				gamma_delta=abs(mean(gr.gamma for gr in visible_results) - mean(gr.global_gamma for gr in visible_results)),
 				step_value=step_value,
 				d_min=mean(gr.d_min for gr in visible_results),
 				d_max=mean(gr.d_max for gr in visible_results),
@@ -214,9 +203,7 @@ class GammaAnalyzer:
 		if results_ref:
 			visible_results = [gr for ch, gr in results_ref.items() if ch in visible_channels]
 			results["ref"] = GammaReading(
-				global_gamma=mean(gr.global_gamma for gr in visible_results),
 				gamma=mean(gr.gamma for gr in visible_results),
-				gamma_delta=abs(mean(gr.gamma for gr in visible_results) - mean(gr.global_gamma for gr in visible_results)),
 				step_value=step_value,
 				d_min=mean(gr.d_min for gr in visible_results),
 				d_max=mean(gr.d_max for gr in visible_results),

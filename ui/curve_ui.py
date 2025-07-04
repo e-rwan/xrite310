@@ -3,6 +3,7 @@
 import os
 import json
 from datetime import datetime
+import math
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QTextEdit,
@@ -13,6 +14,7 @@ from PySide6.QtGui import QStandardItemModel
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 import numpy as np
 
@@ -114,7 +116,7 @@ class CurveWidget(QWidget):
         ## Stats bloc
         self.stat_labels = {}
         stats = [
-            "Gamma ref", "Gamma global", "Gamma",
+            "Gamma ref", "Gamma",
             "Gamma r/c", "Gamma g/m", "Gamma b/y"
         ]
         for stat_key in stats:
@@ -412,7 +414,6 @@ class CurveWidget(QWidget):
         # sensito curves
         self.ax_sensito.clear()
         self.ax_sensito.set_xlim(1, 21)
-        self.ax_sensito.set_ylim(0.0, 4.5)
         self.ax_sensito.set_xlabel("Measurement")
         self.ax_sensito.set_ylabel("Density")
         self.ax_sensito.set_xticks(list(range(1, 22)))
@@ -442,8 +443,10 @@ class CurveWidget(QWidget):
                 )
                 y_max = max(y_max, max(y_vals))
 
-        # set graph y axis length
-        self.ax_sensito.set_ylim(0.0, y_max+(y_max*0.1))
+        # set graph y axis length, ticks and max ticks
+        y_axis = y_max+y_max * 0.2
+        self.ax_sensito.set_ylim(0.0, y_axis)
+        self.ax_sensito.yaxis.set_major_locator(MaxNLocator(nbins=10))
 
         if self.ax_sensito.get_lines():
             self.ax_sensito.legend()
@@ -456,7 +459,6 @@ class CurveWidget(QWidget):
         """
         self.ax_deltad.clear()
         self.ax_deltad.set_xlim(1, 21)
-        self.ax_deltad.set_ylim(0, 5)
         self.ax_deltad.set_xlabel("Measurement")
         self.ax_deltad.set_ylabel("Δ Density (meas - ref)")
         self.ax_deltad.set_xticks(list(range(1, 22)))
@@ -499,10 +501,10 @@ class CurveWidget(QWidget):
                 )
             y_max = max(y_max, max(delta_vals))
 
-        # set graph y axis length
-        y_axis = y_max+y_max*0.2
+        # set graph y axis length, ticks and max ticks
+        y_axis = y_max+y_max * 0.2
         self.ax_deltad.set_ylim(0,y_axis)
-        self.ax_deltad.set_yticks(list(np.arange(0, y_axis, y_axis/10)))
+        self.ax_deltad.yaxis.set_major_locator(MaxNLocator(nbins=10))
 
         if self.ax_deltad.get_lines():
             self.ax_deltad.legend()
@@ -550,18 +552,15 @@ class CurveWidget(QWidget):
         else:
             self.stat_labels["Gamma ref"].setText("--")
             self.stat_labels["Gamma ref"].setToolTip("")
-        # gamma and global gamma
+        # gamma
         reading_all = results.get("all")
         if reading_all:
             self.stat_labels["Gamma"].setText(f"{reading_all.gamma:.2f}")
             self.stat_labels["Gamma"].setToolTip(str(reading_all))
-            self.stat_labels["Gamma global"].setText(f"{reading_all.global_gamma:.2f}")
-            self.stat_labels["Gamma global"].setToolTip(str(reading_all))
+            
         else:
             self.stat_labels["Gamma"].setText("--")
             self.stat_labels["Gamma"].setToolTip("")
-            self.stat_labels["Gamma global"].setText("--")
-            self.stat_labels["Gamma global"].setToolTip("")
 
         # single channel Gamma
         for abcd_key, stat_key in zip(['b', 'c', 'd'], ["Gamma r/c", "Gamma g/m", "Gamma b/y"]):
@@ -596,8 +595,7 @@ class CurveWidget(QWidget):
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
-
-                    # Récupération des champs depuis le JSON
+                    
                     name = data.get("name", os.path.splitext(fname)[0])
                     values = data.get("values", {})
                     date_str = data.get("date", "?")
@@ -606,12 +604,11 @@ class CurveWidget(QWidget):
                     except ValueError:
                         date_obj = datetime.min
 
-                    # Correction ici : on prend uniquement les canaux *effectivement présents*
+                    # we only take used color channels
                     used_channels = list(values.keys())  # ex: ['b']
                     channel_order = ['v', 'r', 'g', 'b', 'c', 'm', 'y']
                     channel_str = ",".join(k.upper() for k in channel_order if k in used_channels)
 
-                    # Construction du label final
                     label = f"{name} - {channel_str} - {date_str}"
 
                     rel_path = os.path.relpath(full_path, abs_base)

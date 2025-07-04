@@ -61,7 +61,7 @@ def main():
     app.setWindowIcon(QIcon(ICON_PATH))
 
     main_window = MainWindow()
-    main_window.resize(1400, 800)
+    main_window.resize(1600, 800)
     main_window.show()
 
     create_single_instance_server(main_window)
