@@ -48,8 +48,7 @@ class CommunicationWidget(QWidget):
 		comunication_selector.addWidget(self.baud_selector)
 		self.baud_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)		
 		
-
-		# Connexion button
+		# Connection button
 		self.connect_btn = QPushButton("Connecter")
 		self.connect_btn.clicked.connect(self.toggle_connection)
 		layout.addWidget(self.connect_btn)
@@ -57,6 +56,7 @@ class CommunicationWidget(QWidget):
 		# Command input
 		layout.addWidget(QLabel("Commande :"))
 		self.command_input = QTextEdit()
+		self.command_input.setReadOnly(True)
 		self.command_input.setFixedHeight(40)
 		layout.addWidget(self.command_input)
 
@@ -64,6 +64,7 @@ class CommunicationWidget(QWidget):
 		send_layout = QHBoxLayout()
 		self.send_btn = QPushButton("Envoyer")
 		self.send_btn.clicked.connect(self.send_command)
+		self.send_btn.setEnabled(False)
 		send_layout.addWidget(self.send_btn)
 
 		# clear text zone button

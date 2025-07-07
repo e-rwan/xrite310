@@ -1,3 +1,6 @@
+# ui/history_ui.py
+
+# pyright: reportAttributeAccessIssue=false
 import os
 from datetime import datetime
 from pathlib import Path
@@ -7,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate
 from constants import MEASURES_PATH
-from model.measurement_set import load_measurement_file
+from model.measurement_set import MeasurementSet
 from lib.history_analyzer import HistoryAnalyzer
 from lib.gamma import GammaAnalyzer
 from ui.history_gamma_plot import HistoryGammaPlot
@@ -20,8 +23,10 @@ class HistoryWidget(QWidget):
 
         # Splitter horizontal : gauche (courbes), droite (fichiers)
         splitter = QSplitter(Qt.Horizontal)
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(splitter)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        layout.addWidget(splitter)
 
         # --- Courbes/stats ---
         self.tabs = QTabWidget()
@@ -76,7 +81,7 @@ class HistoryWidget(QWidget):
             for fname in sorted(files):
                 if fname.endswith(".json"):
                     fpath = os.path.join(root, fname)
-                    measurement = load_measurement_file(Path(fpath))
+                    measurement = MeasurementSet.load_from_file(Path(fpath))
                     if not measurement:
                         continue
                     name = measurement.name or Path(fpath).stem
@@ -99,11 +104,13 @@ class HistoryWidget(QWidget):
 
         for i in range(self.tree.topLevelItemCount()):
             folder_item = self.tree.topLevelItem(i)
+            if folder_item is None:
+                continue
             visible = False
             for j in range(folder_item.childCount()):
                 child = folder_item.child(j)
                 label = child.text(0).lower()
-                m = load_measurement_file(Path(child.data(0, Qt.UserRole)))
+                m = MeasurementSet.load_from_file(Path(child.data(0, Qt.UserRole)))
                 if not m:
                     continue
                 json_date = m.json_date or m.date.strftime("%Y-%m-%d")
@@ -153,13 +160,13 @@ class HistoryWidget(QWidget):
             print("no ref path found")
             return
 
-        ref = load_measurement_file(Path(ref_path))
+        ref = MeasurementSet.load_from_file(Path(ref_path))
         if not ref:
             print("no file found: ", ref_path)
             return
 
         selected_paths = self.get_selected_files()
-        measures = [load_measurement_file(Path(p)) for p in selected_paths]
+        measures = [MeasurementSet.load_from_file(Path(p)) for p in selected_paths]
         measures = [m for m in measures if m is not None]
         if not measures:
             print(f"no measures found in: {selected_paths}")

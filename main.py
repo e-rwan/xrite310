@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt, QByteArray, QIODevice
 from ui.main_window import MainWindow
 from constants import UNIQUE_APP_ID, ICON_PATH
 
-print(ICON_PATH)
 
 def is_another_instance_running():
     socket = QLocalSocket()
@@ -51,12 +50,18 @@ def create_single_instance_server(main_window):
     return server
 
 
+def load_stylesheet(app, path: str):
+    with open(path, "r") as f:
+        app.setStyleSheet(f.read())
+
+
 def main():
     if is_another_instance_running():
         print("App is already running.")
         sys.exit(0)
 
     app = QApplication(sys.argv)
+    load_stylesheet(app, "qss/style.qss")
 
     app.setWindowIcon(QIcon(ICON_PATH))
 

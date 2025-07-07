@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QTabBar, QFileDialog,
 )
 
-from ui.curve_ui import CurveWidget
+from ui.densito_ui import CurveWidget
 from ui.communications_ui import CommunicationWidget
 from ui.history_ui import HistoryWidget
 

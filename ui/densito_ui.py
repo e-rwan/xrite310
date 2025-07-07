@@ -4,6 +4,7 @@ import os
 import json
 from datetime import datetime
 import math
+from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QTextEdit, QFrame, 
@@ -19,11 +20,12 @@ from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToo
 
 import numpy as np
 
-from lib.curves import CurveManager
+from lib.densito import CurveManager
 from utils.plot_utils import ColorChannelSet, draw_curve_graph
+from model.measurement_set import MeasurementSet, ChannelCurve
 from lib.communications import DensitometerReader
 from lib.gamma import GammaAnalyzer, GammaReading, Range
-from constants import MEASURES_PATH, COLOR_SET
+from constants import MEASURES_PATH, COLOR_SET, STATS_LABELS
 
 
 class CurveWidget(QWidget):
@@ -42,7 +44,6 @@ class CurveWidget(QWidget):
         
 
         self.inputs_color_map = ['a', 'b', 'c', 'd']
-        self.color_set = COLOR_SET
 
         self.reader = reader
         self.connect_signals()
@@ -75,102 +76,101 @@ class CurveWidget(QWidget):
 
     def _setup_plot(self):
         """
-        Init graph and gamma layout
+        Init graph and gamma layout (clean version with QSS support).
         """ 
-
         plot_layout = QVBoxLayout()
         plot_widget = QWidget()
         plot_widget.setLayout(plot_layout)
 
-        # gamma widget/layout
+        # Gamma widget/layout
         self.stats_layout = QHBoxLayout()
         stats_widget = QWidget()
         stats_widget.setLayout(self.stats_layout)
-        plot_layout.addWidget(stats_widget)
         stats_widget.setMaximumHeight(50)
+        plot_layout.addWidget(stats_widget)
 
-        # sensito graph widget/layout
-        sensito_graph_layout = QVBoxLayout()
-        sensito_graph_widget = QWidget()
-        sensito_graph_widget.setLayout(sensito_graph_layout)
-        sensito_graph_widget.setMinimumWidth(800)
-        sensito_graph_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
-        # delta-d graph widget/layout
-        deltad_graph_layout = QVBoxLayout()
-        deltad_graph_widget = QWidget()
-        deltad_graph_widget.setLayout(deltad_graph_layout)
-        deltad_graph_widget.setMinimumWidth(800)
-        deltad_graph_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
+        # Sensito + delta graph tabs
         self.plot_tabs = QTabWidget()
         self.plot_tabs.setTabPosition(QTabWidget.West)  # type: ignore
 
+        # Graph containers
+        self.sensito_canvas = FigureCanvas(Figure(figsize=(6, 4)))
+        self.ax_sensito = self.sensito_canvas.figure.add_subplot(111)
+        self.sensito_canvas.setMinimumWidth(800)
+        self.sensito_canvas.figure.subplots_adjust(left=0.09, right=0.98, top=0.99, bottom=0.07)
+        self.sensito_toolbar = NavigationToolbar(self.sensito_canvas, self)
+        sensito_graph_layout = QVBoxLayout()
+        sensito_graph_layout.addWidget(self.sensito_toolbar)
+        sensito_graph_layout.addWidget(self.sensito_canvas)
+        sensito_graph_widget = QWidget()
+        sensito_graph_widget.setLayout(sensito_graph_layout)
+
+        self.deltad_canvas = FigureCanvas(Figure(figsize=(6, 4)))
+        self.ax_deltad = self.deltad_canvas.figure.add_subplot(111)
+        self.deltad_canvas.setMinimumWidth(800)
+        self.deltad_canvas.figure.subplots_adjust(left=0.09, right=0.98, top=0.99, bottom=0.07)
+        self.deltad_toolbar = NavigationToolbar(self.deltad_canvas, self)
+        deltad_graph_layout = QVBoxLayout()
+        deltad_graph_layout.addWidget(self.deltad_toolbar)
+        deltad_graph_layout.addWidget(self.deltad_canvas)
+        deltad_graph_widget = QWidget()
+        deltad_graph_widget.setLayout(deltad_graph_layout)
+
         self.plot_tabs.addTab(sensito_graph_widget, "Sensito")
         self.plot_tabs.addTab(deltad_graph_widget, "delta-d")
-
         plot_layout.addWidget(self.plot_tabs)
 
-        ## Stats bloc
+        # Stats bloc
         self.stat_labels = {}
-        stats = [
-            "Gamma ref", "Gamma ref r/c", "Gamma ref g/m", "Gamma ref b/y", "separator",
-            "Gamma", "Gamma r/c", "Gamma g/m", "Gamma b/y", "separator"
-        ]
-        for stat_key in stats:
-            # add separator
-            if stat_key == "separator":
-                sep = QFrame()
-                sep.setFrameShape(QFrame.Shape.VLine)
-                sep.setFrameShadow(QFrame.Shadow.Sunken)
-                sep.setLineWidth(1)
-                sep.setContentsMargins(10, 0, 10, 0)
-                self.stats_layout.addWidget(sep)
-                continue
+        
+        for stat_type in STATS_LABELS:
+            for stat_key in STATS_LABELS[stat_type]:
+                vbox = QVBoxLayout()
+                vbox.setSpacing(2)
+                vbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            vbox = QVBoxLayout()
-            vbox.setSpacing(2)
-            vbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                title = QLabel(stat_key)
+                title.setObjectName(f"title_{stat_key.replace(' ', '_').lower()}")
+                title.setProperty("class", "stat-title")
+                title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            title = QLabel(stat_key)
-            title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            title.setStyleSheet("font-size: 10px; color: #666;")
+                value = QLabel("--")
+                value.setObjectName(f"value_{stat_key.replace(' ', '_').lower()}")
+                value.setProperty("class", "stat-value")
+                value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                value.setMinimumSize(80, 20)
+                value.setMaximumWidth(80)
+                value.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
 
-            value = QLabel("--")
-            value.setObjectName(stat_key.replace(" ", "_").lower())
-            value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            value.setMinimumSize(80, 20)
-            value.setMaximumWidth(80)
-            value.setStyleSheet("""
-                padding: 4px 8px;
-                border: 1px solid #bbb;
-                border-radius: 4px;
-                background-color: #f2f2f2;
-            """)
-            value.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+                vbox.addWidget(title)
+                vbox.addWidget(value)
 
-            vbox.addWidget(title)
-            vbox.addWidget(value)
+                self.stats_layout.addLayout(vbox)
+                self.stat_labels[stat_key] = value
+            
+            sep = QFrame()
+            sep.setFrameShape(QFrame.Shape.VLine)
+            sep.setFrameShadow(QFrame.Shadow.Sunken)
+            sep.setLineWidth(1)
+            sep.setContentsMargins(10, 0, 10, 0)
+            self.stats_layout.addWidget(sep)
+            continue
 
-            self.stats_layout.addLayout(vbox)
-            self.stat_labels[stat_key] = value
-
-        # Step value select (QComboBox)
+        # Step selector
         step_layout = QVBoxLayout()
         step_layout.setSpacing(2)
         step_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         step_title = QLabel("Step value")
+        step_title.setObjectName("title_step_selector")
+        step_title.setProperty("class", "stat-title")
         step_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        step_title.setStyleSheet("font-size: 10px; color: #666;")
 
         self.step_selector = QComboBox()
+        self.step_selector.setObjectName("step_selector")
+        self.step_selector.setProperty("class", "step-selector")
         self.step_selector.addItems(["0.15", "0.20"])
         self.step_selector.setFixedSize(80, 20)
-        self.step_selector.setStyleSheet("""
-            padding: 2px;
-            background-color: #f2f2f2;
-        """)
         self.step_selector.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.step_selector.currentIndexChanged.connect(self.update_stats)
 
@@ -178,37 +178,7 @@ class CurveWidget(QWidget):
         step_layout.addWidget(self.step_selector)
         self.stats_layout.addLayout(step_layout)
 
-
-        # sensito curves
-        self.sensito_canvas = FigureCanvas(Figure(figsize=(6, 4)))
-        self.sensito_canvas.setMinimumWidth(800)
-        sensito_graph_layout.addWidget(self.sensito_canvas)
-        # tool bar
-        self.sensito_toolbar = NavigationToolbar(self.sensito_canvas, self)
-        sensito_graph_layout.addWidget(self.sensito_toolbar)
-        self.ax_sensito = self.sensito_canvas.figure.add_subplot(111)
-        self.sensito_canvas.figure.subplots_adjust(
-            left=0.09,
-            right=0.98,
-            top=0.99,
-            bottom=0.07
-        )
-
-        # delta-d curves
-        self.deltad_canvas = FigureCanvas(Figure(figsize=(6, 4)))
-        self.deltad_canvas.setMinimumWidth(800)
-        deltad_graph_layout.addWidget(self.deltad_canvas)
-        # tool bar
-        self.deltad_toolbar = NavigationToolbar(self.sensito_canvas, self)
-        deltad_graph_layout.addWidget(self.deltad_toolbar)
-        self.ax_deltad = self.deltad_canvas.figure.add_subplot(111)
-        self.deltad_canvas.figure.subplots_adjust(
-            left=0.09,
-            right=0.98,
-            top=0.99,
-            bottom=0.07
-        )
-
+        # Final layout
         self.layout_main.addWidget(plot_widget)
         self.layout_main.addWidget(self.right_widget)
 
@@ -338,7 +308,7 @@ class CurveWidget(QWidget):
         """
         Update measurements inputs labels(v, c, m, y or v, r, g, b)
         """
-        labels = self.color_set['vcmy'].name if self.radio_vcmy.isChecked() else self.color_set['vrgb'].name
+        labels = COLOR_SET['vcmy'].name if self.radio_vcmy.isChecked() else COLOR_SET['vrgb'].name
         self.color_mode = 'vcmy' if self.radio_vcmy.isChecked() else 'vrgb'
         for i, key in enumerate(self.inputs_color_map):
             label = labels[i]
@@ -439,8 +409,8 @@ class CurveWidget(QWidget):
             if not x_vals or not y_vals:
                 continue
 
-            color_letter = self.color_set[self.color_mode].channel_from_abcd(abcd)
-            color_name = self.color_set[self.color_mode].get_color_name(color_letter)
+            color_letter = COLOR_SET[self.color_mode].channel_from_abcd(abcd)
+            color_name = COLOR_SET[self.color_mode].get_color_name(color_letter)
             label = f"{prefix.capitalize()} {color_letter}"
             linestyle = "--" if prefix == "ref" else "-"
 
@@ -489,8 +459,8 @@ class CurveWidget(QWidget):
                     delta_vals.append(abs(m - r))
 
             if x_vals and delta_vals:
-                color_letter = self.color_set[self.color_mode].channel_from_abcd(abcd)
-                color_name = self.color_set[self.color_mode].get_color_name(color_letter)
+                color_letter = COLOR_SET[self.color_mode].channel_from_abcd(abcd)
+                color_name = COLOR_SET[self.color_mode].get_color_name(color_letter)
                 label = f"Δ {color_letter.upper()}"
                 curves[label] = {
                     "x": x_vals,
@@ -514,7 +484,7 @@ class CurveWidget(QWidget):
         Update the stat blocks with gamma readings.
         """
         # do not include channel v in gamma calculation
-        v_abcd = self.color_set[self.color_mode].channel_to_abcd.get("v", "a")
+        v_abcd = COLOR_SET[self.color_mode].channel_to_abcd.get("v", "a")
         visible_channels = [
             key for key, cb in self.channel_checkboxes.items()
             if cb.isChecked() and key != v_abcd
@@ -551,7 +521,8 @@ class CurveWidget(QWidget):
             self.stat_labels["Gamma ref"].setText("--")
             self.stat_labels["Gamma ref"].setToolTip("")
         # single channel ref Gamma
-        for abcd_key, stat_key in zip(['b', 'c', 'd'], ["Gamma ref r/c", "Gamma ref g/m", "Gamma ref b/y"]):
+        ref_labels = STATS_LABELS["ref"][1:]
+        for abcd_key, stat_key in zip(['b', 'c', 'd'], ref_labels):
             ref_key = f"ref_{abcd_key}"
             if ref_key in results:
                 reading = results[ref_key]
@@ -570,7 +541,8 @@ class CurveWidget(QWidget):
             self.stat_labels["Gamma"].setText("--")
             self.stat_labels["Gamma"].setToolTip("")
         # single channel Gamma
-        for abcd_key, stat_key in zip(['b', 'c', 'd'], ["Gamma r/c", "Gamma g/m", "Gamma b/y"]):
+        meas_labels = STATS_LABELS["meas"][1:]
+        for abcd_key, stat_key in zip(['b', 'c', 'd'], meas_labels):
             if abcd_key in visible_channels and abcd_key in results:
                 reading = results.get(abcd_key)
                 self.stat_labels[stat_key].setText(f"{results[abcd_key].gamma:.2f}")
@@ -648,33 +620,29 @@ class CurveWidget(QWidget):
     def import_selected_file(self, inputs, file, toclear, path=""):
         self.clear_inputs(toclear, False)
 
-        file = file
         if not isinstance(file, str) or not file.endswith(".json"):
             self.update_from_fields()
             return
 
         try:
-            if os.path.isabs(file):
-                filepath = file
-            else:
-                filepath = os.path.join(os.path.dirname(__file__), path, file)
-            name, mode, values = self.manager.import_from_file(filepath)
+            filepath = file if os.path.isabs(file) else os.path.join(os.path.dirname(__file__), path, file)
+            mset = MeasurementSet.load_from_file(Path(filepath))
+    
+            if not mset:
+                return
 
-            # update project title with json "name"
-            self.title_input.setText(name)
+            self.title_input.setText(mset.name or "")
+            self.color_mode = mset.color
+            self.radio_vcmy.setChecked(mset.color == 'vcmy')
+            self.radio_vrgb.setChecked(mset.color == 'vrgb')
 
-            # update color mode
-            self.color_mode = mode
-            self.radio_vcmy.setChecked(mode == 'vcmy')
-            self.radio_vrgb.setChecked(mode == 'vrgb')
+            mapping = COLOR_SET[mset.color].channel_to_abcd
 
-            mapping = self.color_set[mode].channel_to_abcd
-
-            for color_key, vals in values.items():
-                if color_key not in mapping:
+            for color_key, curve in mset.curves.items():
+                abcd_key = mapping.get(color_key.lower())
+                if not abcd_key:
                     continue
-                abcd_key = mapping[color_key]
-                for i, val in enumerate(vals):
+                for i, val in enumerate(curve.values):
                     if i < 21:
                         inputs[abcd_key][i].setText(str(val))
 
@@ -698,25 +666,40 @@ class CurveWidget(QWidget):
 
         # used color channels
         used_channels = []
+        curves = {}
         for channel in ['v', 'r', 'g', 'b', 'c', 'm', 'y']:
-            abcd = self.color_set[self.color_mode].channel_to_abcd.get(channel)
+            abcd = COLOR_SET[self.color_mode].channel_to_abcd.get(channel)
             if abcd and any(field.text().strip() for field in self.meas_inputs[abcd]):
                 used_channels.append(channel.upper())
+                values = []
+                for field in self.meas_inputs[abcd]:
+                    try:
+                        values.append(float(field.text()))
+                    except ValueError:
+                        values.append(0.0)
+                curves[channel.upper()] = ChannelCurve(channel.upper(), values)
 
         # Date
         date_str = datetime.now().strftime("%Y-%m-%d_%H%M")
-
         filename = f"{name}_{''.join(used_channels)}_{date_str}.json"
-
         default_path = os.path.join(MEASURES_PATH, filename)
-        fname, _ = QFileDialog.getSaveFileName(self, "Sauvegarder", default_path, "Fichiers JSON (*.json)")
 
+        fname, _ = QFileDialog.getSaveFileName(self, "Sauvegarder", default_path, "Fichiers JSON (*.json)")
         if not fname:
             return
         if not fname.lower().endswith(".json"):
             fname += ".json"
+
         try:
-            self.manager.export_to_file(fname)
+            mset = MeasurementSet(
+                path=Path(fname),
+                name=name,
+                color=self.color_mode,
+                date=datetime.now(),
+                curves=curves,
+                json_date=date_str
+            )
+            mset.export_to_file(fname)
         except Exception as e:
             print("Erreur sauvegarde JSON:", e)
 
@@ -734,7 +717,7 @@ class CurveWidget(QWidget):
 
     def receive_measurements(self, values: dict[str, float]):
         mode = 'vcmy' if self.radio_vcmy.isChecked() else 'vrgb'
-        channel_map = self.color_set[mode].channel_to_abcd
+        channel_map = COLOR_SET[mode].channel_to_abcd
 
         for k, val in values.items():
             if k not in channel_map:

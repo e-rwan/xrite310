@@ -1,0 +1,40 @@
+/* style des titres de stats */
+QLabel.stat-title {
+    font-size: 10px;
+    color: #666;
+    qproperty-alignment: 'AlignCenter';
+}
+
+/* style du select step value */
+QComboBox#step_selector {
+    background-color: #f2f2f2;
+    padding: 2px;
+    min-width: 80px;
+    max-width: 80px;
+}
+
+/* style des valeurs de stats */
+QLabel.stat-value {
+    padding: 4px 8px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background-color: #28315e;
+    color: white;
+    min-width: 80px;
+    max-width: 80px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QLabel#value_gamma_ref, QLabel#value_gamma {
+    background-color: #383838;
+}
+QLabel#value_gamma_ref_r, QLabel#value_gamma_r {
+    background-color: #612828;
+}
+QLabel#value_gamma_ref_g, QLabel#value_gamma_g {
+    background-color: #255a28;
+}
+QLabel#value_gamma_ref_b, QLabel#value_gamma_b {
+    background-color: #28315e;
+}

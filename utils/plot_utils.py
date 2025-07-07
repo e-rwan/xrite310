@@ -1,4 +1,4 @@
-# utils/utils.py
+# utils/plot_utils.py
 
 from matplotlib.ticker import MaxNLocator, MultipleLocator, FormatStrFormatter
 
