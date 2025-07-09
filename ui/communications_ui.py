@@ -1,5 +1,6 @@
 # ui/com.py
 
+import sys
 from PySide6.QtWidgets import (
 	QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QTextEdit,
 	QHBoxLayout, QSplitter, QSizePolicy
@@ -9,7 +10,41 @@ from serial.tools import list_ports
 from lib.communications import DensitometerReader
 
 
+class QTextEditLogger:
+    """
+    Utility class to redirect standard output (stdout/stderr) to a QTextEdit widget.
+    """
+
+    def __init__(self, widget: QTextEdit):
+        """
+        Initialize the logger with the target QTextEdit widget.
+
+        Args:
+            widget (QTextEdit)
+        """
+        self.widget = widget
+
+    def write(self, message: str):
+        """
+        Automatically called when something is written to stdout or stderr.
+
+        Args:
+            message (str): The text to display in the QTextEdit.
+        """
+        if message.strip():  # Skip empty lines
+            self.widget.append(message.strip())
+
+    def flush(self):
+        """
+        Required for compatibility
+        """
+        pass
+
+
 class CommunicationWidget(QWidget):
+	"""
+	Ui class for the communication tab
+	"""
 	def __init__(self, reader:DensitometerReader, parent=None):
 		"""
 		Init
@@ -75,21 +110,29 @@ class CommunicationWidget(QWidget):
 
 		# text zone
 		splitter = QSplitter(Qt.Vertical)  # type: ignore
-		# input console
+		# input zone
 		self.output_sent = QTextEdit()
 		self.output_sent.setReadOnly(True)
 		self.output_sent.setPlaceholderText("Commandes envoyées")
 		splitter.addWidget(self.output_sent)
-
-		# output console
+		# output zone
 		self.output_received = QTextEdit()
 		self.output_received.setReadOnly(True)
 		self.output_received.setPlaceholderText("Données reçues")
 		splitter.addWidget(self.output_received)
 
 		splitter.setSizes([100, 300])
+		# console
+		self.console_output = QTextEdit()
+		self.console_output.setReadOnly(True)
+		self.console_output.setPlaceholderText("Console")
+		splitter.addWidget(self.console_output)
+
 		layout.addWidget(splitter)
 
+		self.stdout_logger = QTextEditLogger(self.console_output)
+		sys.stdout = self.stdout_logger
+		sys.stderr = self.stdout_logger
 
 
 	def connect_signals(self):

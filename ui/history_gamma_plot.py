@@ -1,8 +1,13 @@
+# ui/history_gamma_plot.py
+
+# pyright: reportAttributeAccessIssue=false
+
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.dates import date2num
+from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 from datetime import datetime
 from typing import List, Dict
 
@@ -13,6 +18,9 @@ class HistoryGammaPlot(QWidget):
         self.canvas = FigureCanvas(Figure())
         layout.addWidget(self.canvas)
         self.ax = self.canvas.figure.add_subplot(111)
+        
+        self.gamma_toolbar = NavigationToolbar(self.canvas, self)
+        layout.addWidget(self.gamma_toolbar)
 
     def plot(self,
              dates: List[datetime],
@@ -41,6 +49,9 @@ class HistoryGammaPlot(QWidget):
             for channel in ["R", "G", "B"]:
                 if channel in ref_values:
                     self.ax.axhline(ref_values[channel], linestyle="--", color=colors[channel], label=f"Réf {channel}")
+
+        self.canvas.setMinimumHeight(300)
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.ax.set_ylabel("Gamma")
         self.ax.set_title("Évolution des gammas")

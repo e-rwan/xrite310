@@ -1,6 +1,9 @@
 # utils/plot_utils.py
 
 from matplotlib.ticker import MaxNLocator, MultipleLocator, FormatStrFormatter
+from typing import Callable, Optional
+
+from model.measurement_set import MeasurementSet, ChannelCurve
 
 class ColorChannelSet:
     """
@@ -32,6 +35,51 @@ class ColorChannelSet:
 
     def channel_from_abcd(self, abcd: str) -> str:
         return self.abcd_to_channel.get(abcd) or ""
+
+    
+def build_curve_data(
+    analyzer_func: Callable[[], dict],
+    dates: list[str],
+    ref: Optional[MeasurementSet] = None,
+    ref_func: Optional[Callable[[list[float]], float]] = None,
+    ylabel: str = "",
+    linestyle: str = "-",
+    ref_linestyle: str = "--"
+) -> dict:
+    """
+    Génère les données pour draw_curve_graph.
+
+    Args:
+        analyzer_func: une fonction comme get_dmin_evolution()
+        dates: liste des dates (str) pour l'axe X
+        ref: mesure de référence (facultatif)
+        ref_func: fonction pour extraire la valeur de référence (min, max, etc.)
+        ylabel: nom pour la légende
+        linestyle: style de courbe principale
+        ref_linestyle: style de courbe de référence
+    """
+    data = analyzer_func()
+    curves = {}
+
+    for ch, values in data.items():
+        curves[ch] = {
+            "x": dates,
+            "y": values,
+            "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower(), None),
+            "linestyle": linestyle
+        }
+
+    if ref and ref_func:
+        for ch in ref.curves:
+            ref_val = ref_func(ref.curves[ch].values)
+            curves[f"Réf {ch.upper()}"] = {
+                "x": dates,
+                "y": [ref_val] * len(dates),
+                "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower(), None),
+                "linestyle": ref_linestyle
+            }
+
+    return curves
 
 
 def draw_curve_graph(
@@ -71,8 +119,14 @@ def draw_curve_graph(
 
     curve_count = 0
     for label, data in curves.items():
-        y_vals = data.get("y", [])
-        x_vals = data.get("x", [i + 1 for i in range(len(y_vals))])
+        raw_y_vals = data.get("y", [])
+        raw_x_vals = data.get("x", [i + 1 for i in range(len(raw_y_vals))])
+        # Filter invalid values
+        valid_points = [(x, y) for x, y in zip(raw_x_vals, raw_y_vals) if isinstance(y, (int, float))]
+        if not valid_points:
+            continue
+        x_vals, y_vals = zip(*valid_points)
+
         color = data.get("color", None)
         linestyle = data.get("linestyle", "-")
 
@@ -97,7 +151,7 @@ def draw_curve_graph(
         canvas.draw()
         return
 
-    # Ajustement des limites Y et des ticks
+    # y tick ajustment
     y_span = global_ymax - global_ymin
     if y_span <= 0.05:
         step = 0.01

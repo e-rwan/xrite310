@@ -54,7 +54,6 @@ class MainWindow(QMainWindow):
         quit_action.setShortcut("Ctrl+Q")
         quit_action.triggered.connect(self.close)
         
-
         # Edit
         edit_menu = menu_bar.addMenu("Édition")        
         # Edit > Clear
@@ -87,6 +86,7 @@ class MainWindow(QMainWindow):
         about_action = help_menu.addAction("À propos")
         about_action.triggered.connect(self.show_about_dialog)
 
+
         self.reader = DensitometerReader()
         self.setWindowTitle("X-Rite 310 - Densitomètre")
         self.setMinimumSize(1200, 600)
@@ -110,6 +110,7 @@ class MainWindow(QMainWindow):
         #History tab
         self.file_tab = HistoryWidget()
         self.tabs.addTab(self.file_tab, "Historic")
+        self.tabs.tabBar().setTabButton(1, QTabBar.ButtonPosition.RightSide, None)
 
         # "+" tab at the end
         self.plus_tab = QWidget()
@@ -222,14 +223,12 @@ class MainWindow(QMainWindow):
         current_widget = self.tabs.currentWidget()
         if not isinstance(current_widget, CurveWidget):
             return
-
         current_widget.export_meas_file()
 
     def clear_measures(self):
         current_widget = self.tabs.currentWidget()
         if not isinstance(current_widget, CurveWidget):
             return
-
         current_widget.clear_inputs()
 
     def open_folder(self, path: str):

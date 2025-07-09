@@ -1,77 +1,117 @@
 # ui/history_ui.py
 
 # pyright: reportAttributeAccessIssue=false
+
 import os
 from datetime import datetime
 from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QLineEdit,
-    QComboBox, QLabel, QSplitter, QTabWidget
+    QComboBox, QLabel, QSplitter, QTabWidget, QApplication
 )
 from PySide6.QtCore import Qt, QDate
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
+
 from constants import MEASURES_PATH
+from utils.plot_utils import draw_curve_graph
 from model.measurement_set import MeasurementSet
 from lib.history_analyzer import HistoryAnalyzer
 from lib.gamma import GammaAnalyzer
 from ui.history_gamma_plot import HistoryGammaPlot
-from utils.plot_utils import draw_curve_graph
+from ui.history_charts import draw_gamma_plot, draw_dmin_plot, draw_dmax_plot
 
 
 class HistoryWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Splitter horizontal : gauche (courbes), droite (fichiers)
+        # Splitter
         splitter = QSplitter(Qt.Horizontal)
 
         layout = QVBoxLayout()
         self.setLayout(layout)
         layout.addWidget(splitter)
 
-        # --- Courbes/stats ---
+        # gamma
         self.tabs = QTabWidget()
+        self.tabs.setTabPosition(QTabWidget.West)
         self.gamma_plot = HistoryGammaPlot()
         self.tabs.addTab(self.gamma_plot, "Gammas")
+        # D-min
+        dmin_widget = QWidget()
+        dmin_layout = QVBoxLayout()
+        dmin_widget.setLayout(dmin_layout)
+        self.dmin_fig = Figure()
+        self.dmin_canvas = FigureCanvas(self.dmin_fig)
+        self.dmin_ax = self.dmin_fig.add_subplot(111)
+        self.dmin_toolbar = NavigationToolbar(self.dmin_canvas, self)
+        dmin_layout.addWidget(self.dmin_canvas)
+        dmin_layout.addWidget(self.dmin_toolbar)
+        self.tabs.addTab(dmin_widget, "D-min")
+        # D-max
+        dmax_widget = QWidget()
+        dmax_layout = QVBoxLayout()
+        dmax_widget.setLayout(dmax_layout)
+        self.dmax_fig = Figure()
+        self.dmax_canvas = FigureCanvas(self.dmax_fig)
+        self.dmax_ax = self.dmax_fig.add_subplot(111)
+        self.dmax_toolbar = NavigationToolbar(self.dmax_canvas, self)
+        dmax_layout.addWidget(self.dmax_canvas)
+        dmax_layout.addWidget(self.dmax_toolbar)
+        self.tabs.addTab(dmax_widget, "D-max")
+        
         splitter.addWidget(self.tabs)
 
-        # --- Sélection des fichiers ---
+        # File selection panel
         right_panel = QWidget()
         right_layout = QVBoxLayout()
         right_panel.setLayout(right_layout)
-
+        right_panel.setMinimumWidth(300)
+        # ref selector
         self.ref_selector = QComboBox()
         self.ref_selector.setPlaceholderText("Référence")
         right_layout.addWidget(QLabel("Courbe de référence"))
         right_layout.addWidget(self.ref_selector)
-
+        # search input
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Rechercher un fichier...")
         self.search_input.textChanged.connect(self.filter_files)
-
+        # filter by date
         self.date_filter = QComboBox()
         self.date_filter.addItems(["Toutes dates", "Aujourd’hui", "Ce mois-ci", "Cette année"])
         self.date_filter.currentIndexChanged.connect(self.filter_files)
-
+        # file list
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Nom"])
-        self.tree.setColumnCount(1)
+        self.tree.setColumnCount(4)
+        self.tree.setHeaderLabels(["", "Nom", "Canaux", "Date"])
         self.tree.setRootIsDecorated(True)
+        self.tree.setSelectionMode(QTreeWidget.ExtendedSelection)
 
         right_layout.addWidget(QLabel("Filtres"))
         right_layout.addWidget(self.search_input)
         right_layout.addWidget(self.date_filter)
         right_layout.addWidget(QLabel("Mesures disponibles"))
         right_layout.addWidget(self.tree)
+        self.tree.setColumnWidth(0, 75)   # Checkbox
+        self.tree.setColumnWidth(1, 100)  # Nom
+        self.tree.setColumnWidth(2, 50)  # Canaux
+        self.tree.setColumnWidth(3, 75)  # Date
 
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(1, 2)
 
         self.load_files()
         self.load_reference_files()
 
+        self.last_clicked_item = None
+
         self.ref_selector.currentIndexChanged.connect(self.refresh_plot)
         self.tree.itemChanged.connect(self.refresh_plot)
+        self.tree.itemClicked.connect(self.toggle_item_check_state)
+
 
     def load_files(self):
         self.tree.clear()
@@ -86,16 +126,22 @@ class HistoryWidget(QWidget):
                         continue
                     name = measurement.name or Path(fpath).stem
                     channels = ", ".join(measurement.curves.keys())
-                    date_str = measurement.json_date or measurement.date.strftime("%Y-%m-%d")
+                    date_str = measurement.date.strftime("%Y-%m-%d")
                     label = f"{name} [{channels}] - {date_str}"
-                    item = QTreeWidgetItem([label])
+
+                    item = QTreeWidgetItem(["", name, channels, date_str])
                     item.setData(0, Qt.UserRole, str(fpath))
                     item.setCheckState(0, Qt.Unchecked)
+                    # prevent checkbox double check
+                    item.setFlags(
+                        (item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled) & ~Qt.ItemIsUserCheckable
+                    )
                     folder_item.addChild(item)
                     added = True
             if added:
                 self.tree.addTopLevelItem(folder_item)
                 folder_item.setExpanded(True)
+                self.auto_resize_columns()
 
     def filter_files(self):
         text = self.search_input.text().lower()
@@ -113,7 +159,7 @@ class HistoryWidget(QWidget):
                 m = MeasurementSet.load_from_file(Path(child.data(0, Qt.UserRole)))
                 if not m:
                     continue
-                json_date = m.json_date or m.date.strftime("%Y-%m-%d")
+                json_date = m.date.strftime("%Y-%m-%d")
                 fdate = QDate.fromString(json_date, "yyyy-MM-dd")
 
                 match_text = text in label
@@ -130,15 +176,19 @@ class HistoryWidget(QWidget):
                 visible = visible or is_match
             folder_item.setHidden(not visible)
 
+
     def get_selected_files(self):
         selected = []
         for i in range(self.tree.topLevelItemCount()):
             folder_item = self.tree.topLevelItem(i)
+            if folder_item is None:
+                continue
             for j in range(folder_item.childCount()):
                 child = folder_item.child(j)
                 if child.checkState(0) == Qt.Checked:
                     selected.append(child.data(0, Qt.UserRole))
         return selected
+
 
     def load_reference_files(self):
         self.ref_selector.clear()
@@ -151,8 +201,47 @@ class HistoryWidget(QWidget):
                 fpath = os.path.join(ref_path, fname)
                 self.ref_selector.addItem(fname, fpath)
 
+
     def get_reference_file(self):
         return self.ref_selector.currentData()
+
+
+    def toggle_item_check_state(self, item, column):
+        if item.childCount() > 0:
+            all_checked = all(item.child(i).checkState(0) == Qt.Checked for i in range(item.childCount()))
+            new_state = Qt.Unchecked if all_checked else Qt.Checked
+            for i in range(item.childCount()):
+                item.child(i).setCheckState(0, new_state)
+            return
+
+        modifiers = QApplication.keyboardModifiers()
+        current_state = item.checkState(0)
+
+        if modifiers == Qt.ShiftModifier and self.last_clicked_item:
+            all_items = []
+            for i in range(self.tree.topLevelItemCount()):
+                parent = self.tree.topLevelItem(i)
+                if parent is None:
+                    continue
+                for j in range(parent.childCount()):
+                    all_items.append(parent.child(j))
+
+            try:
+                i1 = all_items.index(self.last_clicked_item)
+                i2 = all_items.index(item)
+                start, end = sorted([i1, i2])
+                new_state = Qt.Checked if current_state != Qt.Checked else Qt.Unchecked
+                for it in all_items[start:end + 1]:
+                    it.setCheckState(0, new_state)
+            except ValueError:
+                item.setCheckState(0, Qt.Checked if current_state != Qt.Checked else Qt.Unchecked)
+        else:
+            # Simple toggle
+            new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
+            item.setCheckState(0, new_state)
+
+        self.last_clicked_item = item
+
 
     def refresh_plot(self):
         ref_path = self.get_reference_file()
@@ -162,7 +251,7 @@ class HistoryWidget(QWidget):
 
         ref = MeasurementSet.load_from_file(Path(ref_path))
         if not ref:
-            print("no file found: ", ref_path)
+            print("no file found:", ref_path)
             return
 
         selected_paths = self.get_selected_files()
@@ -173,47 +262,20 @@ class HistoryWidget(QWidget):
             return
 
         analyzer = HistoryAnalyzer(ref, measures)
-        gamma_data = analyzer.get_gamma_evolution()
-
-        gamma_ref = {}
-        gamma_tool = GammaAnalyzer()
-        for ch, curve in ref.curves.items():
-            try:
-                reading = gamma_tool.get_gamma_from_values(curve.values)
-                gamma_ref[ch] = reading.gamma
-            except Exception as e:
-                print(f"error computing gamma for ref {ch}: {e}")
 
         dates = [m.date for m in measures]
         str_dates = [d.strftime("%Y-%m-%d") for d in dates]
 
-        # Préparation des courbes pour draw_curve_graph
-        curves = {}
-        for ch, values in gamma_data.items():
-            curves[ch] = {
-                "x": str_dates,
-                "y": values,
-                "color": {"R": "red", "G": "green", "B": "blue"}.get(ch, None),
-                "linestyle": "-"
-            }
-        for ch, val in gamma_ref.items():
-            curves[f"Réf {ch}"] = {
-                "x": str_dates,
-                "y": [val] * len(str_dates),
-                "color": {"R": "red", "G": "green", "B": "blue"}.get(ch, None),
-                "linestyle": "--"
-            }
-
-        draw_curve_graph(
-            ax=self.gamma_plot.ax,
-            canvas=self.gamma_plot.canvas,
-            curves=curves,
-            title="Évolution des gammas",
-            xlabel="Date",
-            ylabel="Gamma",
-            nb_x_ticks=len(str_dates)
-        )
+        # draw each curves in each tab
+        draw_gamma_plot(self.gamma_plot.ax, self.gamma_plot.canvas, analyzer, ref, str_dates)
+        draw_dmin_plot(self.dmin_ax, self.dmin_canvas, analyzer, ref, str_dates)
+        draw_dmax_plot(self.dmax_ax, self.dmax_canvas, analyzer, ref, str_dates)
 
         print("Measures:", len(measures))
         print("Channels:", list(ref.curves.keys()))
         print("Dates:", dates)
+
+
+    def auto_resize_columns(self):
+        for col in range(self.tree.columnCount()):
+            self.tree.resizeColumnToContents(col)

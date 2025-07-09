@@ -1,5 +1,7 @@
 # ui/curve_ui.py
 
+# pyright: reportAttributeAccessIssue=false
+
 import os
 import json
 from datetime import datetime
@@ -91,7 +93,8 @@ class CurveWidget(QWidget):
 
         # Sensito + delta graph tabs
         self.plot_tabs = QTabWidget()
-        self.plot_tabs.setTabPosition(QTabWidget.West)  # type: ignore
+        self.plot_tabs.setTabPosition(QTabWidget.West)
+
 
         # Graph containers
         self.sensito_canvas = FigureCanvas(Figure(figsize=(6, 4)))
@@ -100,8 +103,8 @@ class CurveWidget(QWidget):
         self.sensito_canvas.figure.subplots_adjust(left=0.09, right=0.98, top=0.99, bottom=0.07)
         self.sensito_toolbar = NavigationToolbar(self.sensito_canvas, self)
         sensito_graph_layout = QVBoxLayout()
-        sensito_graph_layout.addWidget(self.sensito_toolbar)
         sensito_graph_layout.addWidget(self.sensito_canvas)
+        sensito_graph_layout.addWidget(self.sensito_toolbar)
         sensito_graph_widget = QWidget()
         sensito_graph_widget.setLayout(sensito_graph_layout)
 
@@ -111,8 +114,8 @@ class CurveWidget(QWidget):
         self.deltad_canvas.figure.subplots_adjust(left=0.09, right=0.98, top=0.99, bottom=0.07)
         self.deltad_toolbar = NavigationToolbar(self.deltad_canvas, self)
         deltad_graph_layout = QVBoxLayout()
-        deltad_graph_layout.addWidget(self.deltad_toolbar)
         deltad_graph_layout.addWidget(self.deltad_canvas)
+        deltad_graph_layout.addWidget(self.deltad_toolbar)
         deltad_graph_widget = QWidget()
         deltad_graph_widget.setLayout(deltad_graph_layout)
 
@@ -243,7 +246,6 @@ class CurveWidget(QWidget):
         self.import_ref_selector.currentIndexChanged.connect(
             lambda: self.import_selected_file(self.ref_inputs, self.import_ref_selector.currentData(), "ref", MEASURES_PATH)
         )
-        # self.import_ref_selector.setMaximumWidth(200)
         ref_column.addWidget(self.import_ref_selector)
         self._add_input_grid(self.ref_inputs, ref_column)
 
@@ -257,14 +259,23 @@ class CurveWidget(QWidget):
         self.import_meas_selector.currentIndexChanged.connect(
             lambda: self.import_selected_file(self.meas_inputs, self.import_meas_selector.currentData(), "meas", MEASURES_PATH)
         )
-        # self.import_meas_selector.setMaximumWidth(160)
-    
         file_buttons.addWidget(self.import_meas_selector)
-        export_btn = QPushButton("\U0001F4BE") # save button
+        
+        # save button
+        export_btn = QPushButton("\U0001F4BE")
         export_btn.setToolTip("Sauvegarder le fichier de mesures")
         export_btn.clicked.connect(self.export_meas_file)
         export_btn.setMaximumWidth(30)
         file_buttons.addWidget(export_btn)
+        
+        
+        # reload measures list button
+        reload_btn = QPushButton("\U0001F5D8")
+        reload_btn.setToolTip("Recharger la list des mesures")
+        reload_btn.clicked.connect(self.refresh_file_selectors)
+        reload_btn.setMaximumWidth(30)
+        file_buttons.addWidget(reload_btn)
+
         meas_column.addLayout(file_buttons)
         self._add_input_grid(self.meas_inputs, meas_column)
 
@@ -273,8 +284,6 @@ class CurveWidget(QWidget):
         clear_meas_btn = QPushButton("Clear")
         clear_ref_btn.clicked.connect(lambda: self.clear_inputs("ref"))
         clear_meas_btn.clicked.connect(lambda: self.clear_inputs("meas"))
-        # clear_ref_btn.setFixedWidth(25)
-        # clear_meas_btn.setFixedWidth(25)
         ref_column.addWidget(clear_ref_btn)
         meas_column.addWidget(clear_meas_btn)
 
@@ -615,6 +624,11 @@ class CurveWidget(QWidget):
                 selector.addItem(label, userData=rel_path)
 
         selector.blockSignals(False)
+    
+
+    def refresh_file_selectors(self):
+        self.populate_file_selector(self.import_meas_selector, MEASURES_PATH)
+        self.populate_file_selector(self.import_ref_selector, MEASURES_PATH)
 
 
     def import_selected_file(self, inputs, file, toclear, path=""):
@@ -695,11 +709,11 @@ class CurveWidget(QWidget):
                 path=Path(fname),
                 name=name,
                 color=self.color_mode,
-                date=datetime.now(),
-                curves=curves,
-                json_date=date_str
+                date=datetime.fromisoformat(date_str),
+                curves=curves
             )
             mset.export_to_file(fname)
+            self.refresh_file_selectors()
         except Exception as e:
             print("Erreur sauvegarde JSON:", e)
 

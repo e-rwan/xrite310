@@ -13,7 +13,6 @@ def is_another_instance_running():
     socket = QLocalSocket()
     socket.connectToServer(UNIQUE_APP_ID)
     if socket.waitForConnected(100):
-        # envoyer un signal quelconque (utile si on veut que la 1ère instance réagisse)
         socket.write(b"raise")
         socket.flush()
         socket.waitForBytesWritten(100)
