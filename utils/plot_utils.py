@@ -1,42 +1,49 @@
 # utils/plot_utils.py
 
-from matplotlib.ticker import MaxNLocator, MultipleLocator, FormatStrFormatter
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from typing import Callable, Optional
 
-from model.measurement_set import MeasurementSet, ChannelCurve
+from model.measurement_set import MeasurementSet
 
 class ColorChannelSet:
     """
-    ColorChannelSet class manage color channels
-    Args:
-        name (str): channel names (e.g. vcmy, vrgb)
-        color_name (list): list or channel color names (e.g. blue, reg, etc...)
-        name (str): channel names (e.g. vcmy, vrgb)
-        abcd_order (str): channel placeholder order (e.g. abcd)
+    Manages color channels for visualization purposes.
+
+    Attributes:
+        name (str): The name of the channel set (e.g., 'vcmy', 'vrgb').
+        color_name (list[str]): A list of color names corresponding to each channel (e.g., ['grey', 'red', 'green', 'blue']).
+        abcd_order (str): A string representing the placeholder order for channels (e.g., 'abcd').
+
+    Methods:
+        get_color_name(channel): Returns the color name associated with a given channel.
+        abcd_key(channel): Gives the placeholder key associated with the channel.
+        channel_from_abcd(abcd): Retrieves the channel name from its placeholder.
     """
     def __init__(self, name: str, color_name: list[str], abcd_order="abcd"):
-
         self.name = name  # 'vrgb' or 'vcmy'
         self.order = list(name)
-        self.color_name = color_name  #e.g.  ['grey', 'red', 'green', 'blue']
+        self.color_name = color_name  # e.g., ['grey', 'red', 'green', 'blue']
         self.channel_to_abcd = dict(zip(self.order, abcd_order))
         self.abcd_to_channel = dict(zip(abcd_order, self.order))
 
     def get_color_name(self, channel: str) -> str:
+        """Returns the color name associated with a provided channel."""
         try:
-            lowchannel = str(channel.lower)
+            lowchannel = str(channel.lower())
             idx = self.order.index(lowchannel)
             return self.color_name[idx]
         except ValueError:
             return channel
 
     def abcd_key(self, channel: str) -> str:
-        return self.channel_to_abcd.get(channel) or ""
+        """Provides the placeholder key associated with the given channel."""
+        return self.channel_to_abcd.get(channel, "")
 
     def channel_from_abcd(self, abcd: str) -> str:
-        return self.abcd_to_channel.get(abcd) or ""
+        """Returns the channel name associated with a given placeholder key."""
+        return self.abcd_to_channel.get(abcd, "")
 
-    
+
 def build_curve_data(
     analyzer_func: Callable[[], dict],
     dates: list[str],
@@ -47,16 +54,19 @@ def build_curve_data(
     ref_linestyle: str = "--"
 ) -> dict:
     """
-    Génère les données pour draw_curve_graph.
+    Generates data for drawing a curve graph.
 
     Args:
-        analyzer_func: une fonction comme get_dmin_evolution()
-        dates: liste des dates (str) pour l'axe X
-        ref: mesure de référence (facultatif)
-        ref_func: fonction pour extraire la valeur de référence (min, max, etc.)
-        ylabel: nom pour la légende
-        linestyle: style de courbe principale
-        ref_linestyle: style de courbe de référence
+        analyzer_func (Callable): A function that analyzes data, such as get_dmin_evolution().
+        dates (list[str]): List of strings representing dates for the X-axis.
+        ref (MeasurementSet, optional): Reference measurement set.
+        ref_func (Callable, optional): Function to extract a reference value (min, max, etc.).
+        ylabel (str): Label for the Y-axis.
+        linestyle (str): Line style for the primary curve.
+        ref_linestyle (str): Line style for the reference curve.
+
+    Returns:
+        dict: A dictionary containing curve data with keys 'x', 'y', 'color', and 'linestyle'.
     """
     data = analyzer_func()
     curves = {}
@@ -94,18 +104,21 @@ def draw_curve_graph(
     allow_negative: bool = False
 ):
     """
-    Draw multiple curves on a matplotlib axis.
+    Draws multiple curves on a given matplotlib axis.
 
     Args:
-        ax (matplotlib.axes.Axes): The axis to draw on.
-        canvas (FigureCanvas): The canvas to refresh.
-        curves (dict): Dict[label] = {"y": [...], "color": "red", "x": [...], "linestyle": "-"}.
-        title (str): Plot title.
+        ax (matplotlib.axes.Axes): The axis to draw the curves on.
+        canvas (FigureCanvas): The canvas object for refreshing the plot.
+        curves (dict): Dictionary where keys are legend labels and values are dicts with 'x', 'y', 'color', and 'linestyle'.
+        title (str): Title of the plot.
         xlabel (str): X-axis label.
         ylabel (str): Y-axis label.
-        show_legend (bool): Whether to show the legend.
-        nb_x_ticks (int): number of x-axis ticks.
-        allow_negative (bool): allow negative ticks
+        show_legend (bool): Flag to indicate if the legend should be shown.
+        nb_x_ticks (int): Number of ticks on the X-axis.
+        allow_negative (bool): Allows negative ticks if true.
+
+    Returns:
+        None
     """
     ax.clear()
     ax.set_title(title)
@@ -121,7 +134,7 @@ def draw_curve_graph(
     for label, data in curves.items():
         raw_y_vals = data.get("y", [])
         raw_x_vals = data.get("x", [i + 1 for i in range(len(raw_y_vals))])
-        # Filter invalid values
+        # Filter out invalid values
         valid_points = [(x, y) for x, y in zip(raw_x_vals, raw_y_vals) if isinstance(y, (int, float))]
         if not valid_points:
             continue
@@ -151,7 +164,7 @@ def draw_curve_graph(
         canvas.draw()
         return
 
-    # y tick ajustment
+    # Adjust y ticks
     y_span = global_ymax - global_ymin
     if y_span <= 0.05:
         step = 0.01

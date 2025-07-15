@@ -4,12 +4,20 @@ import os
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
-from PySide6.QtCore import Qt, QByteArray, QIODevice
+from PySide6.QtCore import Qt
 from ui.main_window import MainWindow
 from constants import UNIQUE_APP_ID, ICON_PATH
 
 
 def is_another_instance_running():
+    """Checks if another instance of the application is running.
+
+    Connects to a local server using a unique application ID. If connected,
+    sends a "raise" message to bring the existing instance to the foreground.
+
+    Returns:
+        bool: True if another instance is running, False otherwise.
+    """
     socket = QLocalSocket()
     socket.connectToServer(UNIQUE_APP_ID)
     if socket.waitForConnected(100):
@@ -22,6 +30,18 @@ def is_another_instance_running():
 
 
 def create_single_instance_server(main_window):
+    """Creates a server to enforce single instance of the application.
+
+    Removes any existing server with the same ID and creates a new one.
+    Listens for incoming connections and raises the main window if the 
+    "raise" message is received.
+
+    Args:
+        main_window (MainWindow): The main window instance to be raised.
+
+    Returns:
+        QLocalServer: The server object or None if it failed to listen.
+    """
     server = QLocalServer()
     try:
         QLocalServer.removeServer(UNIQUE_APP_ID)
@@ -50,11 +70,23 @@ def create_single_instance_server(main_window):
 
 
 def load_stylesheet(app, path: str):
+    """Loads a stylesheet from a file and applies it to the application.
+
+    Args:
+        app (QApplication): The application instance to style.
+        path (str): Path to the stylesheet file.
+    """
     with open(path, "r") as f:
         app.setStyleSheet(f.read())
 
 
 def main():
+    """Main entry point for the application.
+
+    Checks for another instance of the app, initializes the application,
+    applies the stylesheet, sets up the main window, and ensures single
+    instance operation.
+    """
     if is_another_instance_running():
         print("App is already running.")
         sys.exit(0)

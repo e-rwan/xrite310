@@ -5,28 +5,24 @@
 import os
 import json
 from datetime import datetime
-import math
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QTextEdit, QFrame, 
-    QButtonGroup, QHBoxLayout, QPushButton, QLineEdit, QFileDialog, QInputDialog, QSplitter, QTabWidget
+    QWidget, QVBoxLayout, QLabel, QComboBox, QCheckBox, QRadioButton, QSizePolicy, QFrame, 
+    QButtonGroup, QHBoxLayout, QPushButton, QLineEdit, QFileDialog, QSplitter, QTabWidget
 )
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QStandardItemModel
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.ticker import MaxNLocator, MultipleLocator, FormatStrFormatter
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 
-import numpy as np
-
 from lib.densito import CurveManager
-from utils.plot_utils import ColorChannelSet, draw_curve_graph
+from utils.plot_utils import draw_curve_graph
 from model.measurement_set import MeasurementSet, ChannelCurve
 from lib.communications import DensitometerReader
-from lib.gamma import GammaAnalyzer, GammaReading, Range
+from lib.gamma import GammaAnalyzer
 from constants import MEASURES_PATH, COLOR_SET, STATS_LABELS
 
 
@@ -562,6 +558,13 @@ class CurveWidget(QWidget):
 
 
     def populate_file_selector(self, selector: QComboBox, path: str):
+        """Populate the file selector
+
+        Add list of parsed json file to selector
+
+        Args:
+            Selector (QComboBox)
+        """
         selector.blockSignals(True)
         selector.clear()
         selector.addItem("importer")
@@ -667,6 +670,15 @@ class CurveWidget(QWidget):
 
 
     def export_meas_file(self):
+        """Exports measurement data to a JSON file.
+
+        This function collects measurement data including name, color mode, and curves,
+        then formats it into a structured JSON file. A dialog prompts the user for a
+        save location. It updates file selectors post-exportation.
+
+        Raises:
+            Exception: If an error occurs during the JSON file export.
+        """
         # measure name
         name = self.title_input.text()
 
@@ -719,6 +731,18 @@ class CurveWidget(QWidget):
 
 
     def eventFilter(self, obj, event):
+        """Handles focus events for user input fields.
+
+        This function detects when a text input field gains focus and updates the
+        currently selected index. It highlights the row corresponding to this index.
+
+        Args:
+            obj: The object that triggered the event.
+            event: The event triggered (specifically looking for focus in events).
+
+        Returns:
+            bool: Whether the event is consumed by the filter.
+        """
         if event.type() == QEvent.Type.FocusIn:
             for group in (self.ref_inputs, self.meas_inputs):
                 for key in group:
@@ -730,6 +754,14 @@ class CurveWidget(QWidget):
 
 
     def receive_measurements(self, values: dict[str, float]):
+        """Populates input fields with provided measurement values.
+
+        This function updates input fields based on the received measurement values,
+        maps channels to their respective fields, and progresses the selected index.
+
+        Args:
+            values (dict[str, float]): A dictionary of measurement values keyed by channel.
+        """
         mode = 'vcmy' if self.radio_vcmy.isChecked() else 'vrgb'
         channel_map = COLOR_SET[mode].channel_to_abcd
 
@@ -748,6 +780,11 @@ class CurveWidget(QWidget):
 
 
     def _highlight_selected_row(self):
+        """Visually highlights the currently selected input row.
+
+        This function changes the background color of the currently selected row's input fields,
+        providing a visual cue for users during data entry.
+        """
         for group in (self.meas_inputs,):
             for key in group:
                 for i, field in enumerate(group[key]):
@@ -758,13 +795,23 @@ class CurveWidget(QWidget):
 
 
     def connect_signals(self):
-        """
-        Signal connection with communications.py
+        """Connects signals for measurement data reception.
+
+        This function sets up the necessary signal connections to handle incoming parsed
+        measurement data, allowing real-time updates of the input fields.
         """
         self.reader.parsed_measurement.connect(self.receive_measurements)
 
 
     def update_tab_title(self):
+        """Updates the title of the tab containing this widget.
+
+        Adjusts the displayed tab title based on the user's input. If no title is provided,
+        it defaults to "Courbes".
+
+        Note:
+            Only updates the title if the widget is contained within a tab widget.
+        """
         title = self.title_input.text().strip()
         if self.tabs:
             index = self.tabs.indexOf(self)

@@ -3,7 +3,6 @@
 # pyright: reportAttributeAccessIssue=false
 
 import os
-from datetime import datetime
 from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QLineEdit,
@@ -15,16 +14,36 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 
 from constants import MEASURES_PATH
-from utils.plot_utils import draw_curve_graph
 from model.measurement_set import MeasurementSet
 from lib.history_analyzer import HistoryAnalyzer
-from lib.gamma import GammaAnalyzer
 from ui.history_gamma_plot import HistoryGammaPlot
 from ui.history_charts import draw_gamma_plot, draw_dmin_plot, draw_dmax_plot
 
 
 class HistoryWidget(QWidget):
+    """Provides a graphical user interface to analyze historical measurement data.
+
+    The HistoryWidget allows users to select and visualize historical measurement data.
+    It includes features for filtering, selecting reference curves, and plotting
+    gamma, D-min, and D-max curves.
+
+    Methods:
+        load_files: Loads measurement files into the display.
+        filter_files: Filters displayed files based on user input and date criteria.
+        get_selected_files: Retrieves the list of currently selected file paths.
+        load_reference_files: Loads and populates reference measurement files.
+        get_reference_file: Returns the currently selected reference file path.
+        toggle_item_check_state: Toggles the check state of tree items, enabling selection.
+        refresh_plot: Updates plots with selected measurement data.
+        auto_resize_columns: Adjusts tree column widths to fit contents.
+    """
+
     def __init__(self, parent=None):
+        """Initializes the HistoryWidget, setting up its layout and components.
+
+        Args:
+            parent: The parent widget, defaults to None.
+        """
         super().__init__(parent)
 
         # Splitter
@@ -114,6 +133,11 @@ class HistoryWidget(QWidget):
 
 
     def load_files(self):
+        """Loads measurement files into the UI.
+
+        This function clears existing tree data and loads new measurement files
+        from a specified directory, adding them to the tree widget for display.
+        """
         self.tree.clear()
         for root, dirs, files in os.walk(MEASURES_PATH):
             folder_item = QTreeWidgetItem([os.path.basename(root)])
@@ -143,7 +167,13 @@ class HistoryWidget(QWidget):
                 folder_item.setExpanded(True)
                 self.auto_resize_columns()
 
+
     def filter_files(self):
+        """Filters displayed measurement files based on search text and date filter.
+
+        This function hides or shows files in the tree widget based on whether they
+        match user-entered text or a selected date criterion.
+        """
         text = self.search_input.text().lower()
         period = self.date_filter.currentText()
         now = QDate.currentDate()
@@ -177,7 +207,12 @@ class HistoryWidget(QWidget):
             folder_item.setHidden(not visible)
 
 
-    def get_selected_files(self):
+    def get_selected_files(self) -> list:
+        """Gets the file paths of currently selected measurement files.
+
+        Returns:
+            list: A list of file paths corresponding to selected files.
+        """
         selected = []
         for i in range(self.tree.topLevelItemCount()):
             folder_item = self.tree.topLevelItem(i)
@@ -191,6 +226,11 @@ class HistoryWidget(QWidget):
 
 
     def load_reference_files(self):
+        """Loads reference files to be available for plot comparison.
+
+        This function searches a designated folder for reference files and populates
+        a combo box with these references.
+        """
         self.ref_selector.clear()
         ref_path = os.path.join(MEASURES_PATH, "ref")
         if not os.path.exists(ref_path):
@@ -203,10 +243,20 @@ class HistoryWidget(QWidget):
 
 
     def get_reference_file(self):
+        """Retrieves the currently selected reference file.
+
+        Returns:
+            The file path of the selected reference file, or None if not selected.
+        """
         return self.ref_selector.currentData()
 
 
-    def toggle_item_check_state(self, item, column):
+    def toggle_item_check_state(self, item):
+        """Toggles the check state for a tree widget item and its children.
+
+        Args:
+            item: The QTreeWidgetItem to toggle.
+        """
         if item.childCount() > 0:
             all_checked = all(item.child(i).checkState(0) == Qt.Checked for i in range(item.childCount()))
             new_state = Qt.Unchecked if all_checked else Qt.Checked
@@ -244,6 +294,11 @@ class HistoryWidget(QWidget):
 
 
     def refresh_plot(self):
+        """Refreshes plot displays with selected measurements and reference data.
+
+        This function updates the gamma, D-min, and D-max plots using the
+        currently selected measurement files and reference curves.
+        """
         ref_path = self.get_reference_file()
         if not ref_path:
             print("no ref path found")
@@ -277,5 +332,21 @@ class HistoryWidget(QWidget):
 
 
     def auto_resize_columns(self):
+        """Automatically resizes tree widget columns to fit their contents.
+
+        This helps ensure that filenames, dates, and other details are fully visible.
+        """
         for col in range(self.tree.columnCount()):
             self.tree.resizeColumnToContents(col)
+
+
+    def clear_selection(self):
+        """
+        Uncheck all child items and clear the plot.
+        """
+        for i in range(self.tree.topLevelItemCount()):
+            folder_item = self.tree.topLevelItem(i)
+            if folder_item is None: return
+            for j in range(folder_item.childCount()):
+                child = folder_item.child(j)
+                child.setCheckState(0, Qt.Unchecked)

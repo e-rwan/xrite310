@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, NamedTuple, Union, Optional
+from typing import List, NamedTuple, Optional
 from statistics import mean
 
 STEP_VALUE = 0.15
@@ -41,6 +41,31 @@ class GammaReading:
 
 
 class GammaAnalyzer:
+	"""Analyzes gamma values from a set of density readings.
+
+	This class contains methods for determining ranges involved in gamma analysis, computing gamma values,
+	and generating comprehensive gamma readings from provided data. It is designed to handle lists of density
+	values and returns calculated metrics like gamma, search ranges, and linearity through acceleration minima.
+
+	Methods:
+		get_search_range(values: List[float], low_pct: float, high_pct: float) -> Range:
+			Calculates the index range for gamma analysis based on specified sensitivity percentages.
+
+		get_gamma_range(values: List[float], search_range: Range, num_steps: int) -> Range:
+			Identifies the most linear range within the search bounds by minimizing acceleration sums.
+
+		get_derivatives(values: List[float]) -> List[float]:
+			Computes central derivatives for a list of density values indicating changes between consecutive points.
+
+		get_gamma(gamma_range: Range, values: List[float], step_value: float) -> float:
+			Computes the gamma value based on the slope of values over a determined range.
+
+		get_gamma_from_values(values: List[float], step_value: float, low_pct: float, high_pct: float, min_diff: float) -> GammaReading:
+			Produces a detailed gamma reading encapsulating gamma computation and related metrics based on density values.
+
+		get_gamma_from_curve_data(data: dict[str, list[Optional[float]]], visible_channels: list[str], step_value: float) -> dict[str, GammaReading]:
+			Processes curve data to compute gamma readings for each visible channel, including overall and referenced metrics.
+	"""
 
 	def get_search_range(self, values: List[float], low_pct=LOW_PCT, high_pct=HIGH_PCT) -> Range:
 		""" Calculates the index range to search for gamma analysis.
