@@ -11,6 +11,9 @@ class MarkdownWebViewer(QDialog):
     with custom CSS support and full Obsidian-style markdown.
     """
     def __init__(self, md_path: str, parent=None):
+        """
+        init
+        """
         super().__init__(parent)
         self.setWindowTitle("User Manual")
         self.resize(1000, 700)
@@ -23,6 +26,12 @@ class MarkdownWebViewer(QDialog):
         self.load_markdown(md_path)
 
     def load_markdown(self, md_path: str):
+        """
+        Load a markdown file with optional css and convert it to html for display
+
+        Args:
+            md_path (str): path to the md file
+        """
         if not os.path.exists(md_path):
             html = f"<h1>File not found</h1><p>{md_path}</p>"
             self.web_view.setHtml(html)
