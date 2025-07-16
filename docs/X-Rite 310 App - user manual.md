@@ -14,17 +14,12 @@ Ce manuel vous guidera dans l'utilisation de l'application X-Rite 310 et la conf
 
   
 
-- [1. Présentation de l'application](#1-présentation-de-lapplication)
-
+- [1. Présentation de l'application](#1-presentation-de-lapplication)
 - [2. Interface principale](#2-interface-principale)
-
-- [3. Connexion avec le densitomètre](#3-connexion-avec-le-densitomètre)
-
-- [4. Configuration du densitomètre X-Rite 310](#4-configuration-du-densitomètre-x-rite-310)
-
+- [3. Connexion avec le densitomètre](#3-connexion-avec-le-densitometre)
+- [4. Configuration du densitomètre X-Rite 310](#4-configuration-du-densitometre-x-rite-310)
 - [5. Modes de fonctionnement](#5-modes-de-fonctionnement)
-
-- [6. Dépannage courant](#6-dépannage-courant)
+- [6. Dépannage courant](#6-depannage-courant)
 
   
 
@@ -120,12 +115,10 @@ Dans l’onglet **Communication**, sélectionner :
 
 ## 4. Configuration du densitomètre X-Rite 310
 
-  
-
 Allumer le densitomètre, puis entrer successivement les **modes suivants** :
 
 
-> [!INFO] (les modes sélectionnés sont sauvegardés apres extinction du densitomètre, il n'est donc pas nécéssaire de faire cette manipulation à chaque usage)
+> ℹ️ les modes sélectionnés sont sauvegardés apres extinction du densitomètre, il n'est donc pas nécéssaire de faire cette manipulation à chaque usage
 
   
 
@@ -139,7 +132,7 @@ Allumer le densitomètre, puis entrer successivement les **modes suivants** :
 | Envoi auto          | `F → MODE → 03`         | Envoi automatique après mesure |
 | Format sur 1 ligne  | `F → MODE → 21`         | Valeurs sur une seule ligne |
 
-> [!WARNING] 👉 Ne pas activer le mode 10 ni 14/15 si mode 11 est actif.
+> ⚠️ Ne pas activer le mode 10 ni 14/15 si mode 11 est actif.
 
 
 ---
@@ -162,17 +155,15 @@ Allumer le densitomètre, puis entrer successivement les **modes suivants** :
 
 ## 6. Dépannage courant
 
-  
-
 ### ❌ Je n’ai rien en sortie
 
-- Vérifier que le port COM est correct.
+- Vérifier que le port COM sélectionné est correct.
 
 - Vérifier que le baudrate correspond à celui du densitomètre.
 
-- Vérifier que le bouton **PRINT** du 310 a été pressé.
+- Vérifier que le bouton **PRINT** du 310 a bien été pressé(un bip sonore doit se faire entendre).
 
-- Si rien ne sort même après `PRINT`, vérifier que **mode 03 est activé**.
+- Si rien ne sort même après `PRINT`, vérifier que le **mode 03 est activé**.
   
 
 ---

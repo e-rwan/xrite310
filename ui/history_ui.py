@@ -142,30 +142,35 @@ class HistoryWidget(QWidget):
         for root, dirs, files in os.walk(MEASURES_PATH):
             folder_item = QTreeWidgetItem([os.path.basename(root)])
             added = False
-            for fname in sorted(files):
+
+            measurements = []
+            for fname in files:
                 if fname.endswith(".json"):
                     fpath = os.path.join(root, fname)
                     measurement = MeasurementSet.load_from_file(Path(fpath))
-                    if not measurement:
-                        continue
-                    name = measurement.name or Path(fpath).stem
-                    channels = ", ".join(measurement.curves.keys())
-                    date_str = measurement.date.strftime("%Y-%m-%d")
-                    label = f"{name} [{channels}] - {date_str}"
+                    if measurement:
+                        measurements.append((measurement, fpath))
 
-                    item = QTreeWidgetItem(["", name, channels, date_str])
-                    item.setData(0, Qt.UserRole, str(fpath))
-                    item.setCheckState(0, Qt.Unchecked)
-                    # prevent checkbox double check
-                    item.setFlags(
-                        (item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled) & ~Qt.ItemIsUserCheckable
-                    )
-                    folder_item.addChild(item)
-                    added = True
+            # sort by date
+            measurements.sort(key=lambda tup: tup[0].date)
+
+            for measurement, fpath in measurements:
+                name = measurement.name or Path(fpath).stem
+                channels = ", ".join(measurement.curves.keys())
+                date_str = measurement.date.strftime("%Y-%m-%d")
+
+                item = QTreeWidgetItem(["", name, channels, date_str])
+                item.setData(0, Qt.UserRole, str(fpath))
+                item.setCheckState(0, Qt.Unchecked)
+                item.setFlags(
+                    (item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled) & ~Qt.ItemIsUserCheckable
+                )
+                folder_item.addChild(item)
+                added = True
+
             if added:
                 self.tree.addTopLevelItem(folder_item)
                 folder_item.setExpanded(True)
-                self.auto_resize_columns()
 
 
     def filter_files(self):
@@ -315,7 +320,8 @@ class HistoryWidget(QWidget):
         if not measures:
             print(f"no measures found in: {selected_paths}")
             return
-
+        measures.sort(key=lambda m: m.date)
+        
         analyzer = HistoryAnalyzer(ref, measures)
 
         dates = [m.date for m in measures]

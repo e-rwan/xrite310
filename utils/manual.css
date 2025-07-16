@@ -1,0 +1,61 @@
+body {
+    font-family: sans-serif;
+    padding: 2em;
+    line-height: 1.6;
+    background-color: #fdfdfd;
+}
+
+blockquote {
+    border-left: 4px solid #aaa;
+    padding-left: 1em;
+    color: #555;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+}
+
+.admonition {
+    border: 1px solid #999;
+    padding: 1em;
+    background-color: #f3f3f3;
+    border-left: 4px solid #888;
+    margin: 1em 0;
+}
+/* Base callout style */
+.admonition {
+  border-left: 4px solid #888;
+  background-color: #f8f8f8;
+  padding: 1em;
+  margin: 1.5em 0;
+  border-radius: 4px;
+}
+
+/* Title line */
+.admonition-title {
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+/* callouts */
+.admonition.note {
+  border-color: #2e8b57;
+  background-color: #e6f5ec;
+}
+.admonition.warning {
+  border-color: #d9534f;
+  background-color: #f8e6e6;
+}
+.admonition.tip {
+  border-color: #5bc0de;
+  background-color: #e7f5fb;
+}
+.admonition.info {
+  border-color: #0275d8;
+  background-color: #e8f1fa;
+}

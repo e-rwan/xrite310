@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from ui.densito_ui import CurveWidget
 from ui.communications_ui import CommunicationWidget
 from ui.history_ui import HistoryWidget
+from utils.md_viewer import MarkdownWebViewer
 
 from lib.communications import DensitometerReader
 from constants import MEASURES_PATH, ICON_PATH
@@ -64,12 +65,12 @@ class MainWindow(QMainWindow):
         # Configures the "Help" menu.
         help_menu = menu_bar.addMenu("Aide")
         xrite_doc_action = help_menu.addAction("x-rite Densitometer Operation Manual")
-        doc_path = os.path.join(os.path.dirname(__file__), "../docs/310-42_310_Densitometer_Operation_Manual_en.pdf")
-        xrite_doc_action.triggered.connect(lambda: self.open_pdf(doc_path))
+        densitometer_doc_path = os.path.join(os.path.dirname(__file__), "../docs/310-42_310_Densitometer_Operation_Manual_en.pdf")
+        xrite_doc_action.triggered.connect(lambda: self.open_pdf(densitometer_doc_path))
 
         manual_action = help_menu.addAction("Manuel utilisateur")
-        doc_path = os.path.join(os.path.dirname(__file__), "../docs/X-Rite 310 App - user manual.pdf")
-        manual_action.triggered.connect(lambda: self.open_pdf(doc_path))
+        doc_path = os.path.join(os.path.dirname(__file__), "../docs/X-Rite 310 App - user manual.md")
+        manual_action.triggered.connect(lambda: MarkdownWebViewer(doc_path).exec())
 
         about_action = help_menu.addAction("À propos")
         about_action.triggered.connect(self.show_about_dialog)
