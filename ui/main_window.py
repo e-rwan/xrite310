@@ -15,7 +15,7 @@ from ui.history_ui import HistoryWidget
 from utils.md_viewer import MarkdownWebViewer
 
 from lib.communications import DensitometerReader
-from constants import MEASURES_PATH, ICON_PATH
+from constants import MEASURES_PATH, ICON_PATH, DOC_MANUAL_PATH, DOC_XRITEMANUAL_PATH
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -66,11 +66,11 @@ class MainWindow(QMainWindow):
         help_menu = menu_bar.addMenu("Aide")
         xrite_doc_action = help_menu.addAction("x-rite Densitometer Operation Manual")
         densitometer_doc_path = os.path.join(os.path.dirname(__file__), "../docs/310-42_310_Densitometer_Operation_Manual_en.pdf")
-        xrite_doc_action.triggered.connect(lambda: self.open_pdf(densitometer_doc_path))
+        xrite_doc_action.triggered.connect(lambda: self.open_pdf(DOC_XRITEMANUAL_PATH))
 
         manual_action = help_menu.addAction("Manuel utilisateur")
         doc_path = os.path.join(os.path.dirname(__file__), "../docs/X-Rite 310 App - user manual.md")
-        manual_action.triggered.connect(lambda: MarkdownWebViewer(doc_path).exec())
+        manual_action.triggered.connect(lambda: MarkdownWebViewer(DOC_MANUAL_PATH).exec())
 
         about_action = help_menu.addAction("À propos")
         about_action.triggered.connect(self.show_about_dialog)
