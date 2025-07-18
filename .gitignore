@@ -25,3 +25,10 @@ measures/
 
 # Drivers folder
 setup/
+
+# pyinstaller
+build/
+dist/
+_internal/
+*.spec
+main.exe
