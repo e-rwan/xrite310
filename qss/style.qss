@@ -8,6 +8,7 @@ QLabel.stat-title {
 /* style du select step value */
 QComboBox#step_selector {
     background-color: #f2f2f2;
+    color: #000000;
     padding: 2px;
     min-width: 80px;
     max-width: 80px;
@@ -37,4 +38,9 @@ QLabel#value_gamma_ref_g, QLabel#value_gamma_g {
 }
 QLabel#value_gamma_ref_b, QLabel#value_gamma_b {
     background-color: #28315e;
+}
+
+QLineEdit {
+    background-color: #111;
+    Color: #bbb;
 }

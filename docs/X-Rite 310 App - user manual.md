@@ -126,13 +126,11 @@ Allumer le densitomètre, puis entrer successivement les **modes suivants** :
 
 | Étape | Appuyer sur | Effet attendu |
 |---------------------|-------------------------|-------------------------|
-| Entrer mode         | `F → MODE → 11`         | Active le mode TECHNET |
-| Définir baudrate    | `F → MODE → 13`         | 1200 bauds             |
-| Format complet      | `F → MODE → 18`         | Données longues        |
 | Envoi auto          | `F → MODE → 03`         | Envoi automatique après mesure |
-| Format sur 1 ligne  | `F → MODE → 21`         | Valeurs sur une seule ligne |
+| Entrer mode         | `F → MODE → 10`         | Active le modePrinter |
+| Définir baudrate    | `F → MODE → 13`         | 1200 bauds             |
+| Format complet      | `F → MODE → 19`         | Données courtes        |
 
-> ⚠️ Ne pas activer le mode 10 ni 14/15 si mode 11 est actif.
 
 
 ---
@@ -147,7 +145,6 @@ Allumer le densitomètre, puis entrer successivement les **modes suivants** :
 | `03` | Auto-print : déclenchement automatique de l’envoi des données |
 | `05` | Auto-print avec date/heure incluse |
 | `18` | Format long (plus d'infos, utile pour la courbe gamma) |
-| `21` | Sortie sur une ligne sans retour chariot |
 
 
 ---

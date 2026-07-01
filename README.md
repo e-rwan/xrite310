@@ -2,7 +2,7 @@
 
 A cross-platform Python application to communicate with an **X-Rite 310** densitometer (models 310T or 310TR), enabling data acquisition, analysis, and graphical visualization of density measurements.
 
-## 📦 Key Features
+## Key Features
 
 - Serial connection to the X-Rite 310 densitometer
 - Automatic acquisition of 21-point density readings
@@ -13,7 +13,7 @@ A cross-platform Python application to communicate with an **X-Rite 310** densit
 
 ---
 
-## 🖥️ Requirements
+## Requirements
 
 - **Python 3.9 or 3.10 (64-bit)**
 - A serial port (RS-232 or USB/serial adapter) to connect the densitometer
@@ -21,19 +21,19 @@ A cross-platform Python application to communicate with an **X-Rite 310** densit
 
 ---
 
-## 🚀 Installation
+## Installation
 
 1. **Download the project archive**
 2. **Install 64-bit Python** if not already installed:  
-   👉 [https://www.python.org/downloads/](https://www.python.org/downloads/)
+   [https://www.python.org/downloads/](https://www.python.org/downloads/)
 3. **Open a terminal:**
 
-### ▶️ On **Windows**:
+### On **Windows**:
 
 Double-click `install.bat`  
 *(or right-click > Run as administrator)*
 
-### ▶️ On **macOS / Linux**:
+### On **macOS / Linux**:
 
 ```bash
 chmod +x install.sh
@@ -42,7 +42,7 @@ chmod +x install.sh
 
 ---
 
-## ▶️ Launch the Application
+## ▶Launch the Application
 
 ```bash
 python main.py
@@ -56,7 +56,7 @@ python3 main.py
 
 ---
 
-## 🧰 Python Dependencies
+## Python Dependencies
 
 - `PySide6` (GUI with Qt6)
 - `matplotlib` (graph plotting)
@@ -66,7 +66,7 @@ python3 main.py
 
 ---
 
-## 🛠 Troubleshooting
+## Troubleshooting
 
 - Make sure you are using **64-bit Python**.
 - If the app fails to launch or shows an empty window, verify that the densitometer is connected and detected (correct serial port).
@@ -74,7 +74,7 @@ python3 main.py
 
 ---
 
-## 📚 References
+## References
 
 - [X-Rite 310 User Manual (PDF)](docs/310-42_310_Densitometer_Operation_Manual_en.pdf)
 - ASCII serial communication protocol documented in Chapter 3 of the manual

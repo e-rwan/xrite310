@@ -91,7 +91,9 @@ def main():
         print("App is already running.")
         sys.exit(0)
 
+
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     load_stylesheet(app, "qss/style.qss")
 
     app.setWindowIcon(QIcon(ICON_PATH))

@@ -77,7 +77,8 @@ class DensitometerReader(QObject):
             Args:
                 line (str): text to parse
             """
-            parts = line.strip().lower().split()
+            clean_line = line.replace("\\", " ").replace(".", "")
+            parts = clean_line.strip().lower().split()
             values = {}
 
             for part in parts:

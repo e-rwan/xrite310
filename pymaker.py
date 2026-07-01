@@ -12,4 +12,18 @@ PyInstaller.__main__.run([
     '--distpath=dist',
     '--workpath=build',
     '--specpath=build',
+    '--collect-submodules=PySide6.QtCore',
+    '--collect-submodules=PySide6.QtGui',
+    '--collect-submodules=PySide6.QtNetwork',
+    '--collect-submodules=PySide6.QtWebEngineWidgets',
+    '--collect-submodules=PySide6.QtWidgets',
+    '--hidden-import=PySide6.QtWebEngineCore',
+    '--exclude-module=PySide6.QtQml',
+    '--exclude-module=PySide6.QtQuick',
+    '--exclude-module=PySide6.QtOpenGL',
+    '--exclude-module=PySide6.QtPositioning',
+    '--exclude-module=PySide6.QtDesigner',
+    '--exclude-module=PySide6.QtMultimedia',
+    '--exclude-module=test',
+    '--exclude-module=tkinter'
 ])
