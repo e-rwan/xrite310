@@ -4,12 +4,16 @@
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+from matplotlib.ticker import AutoMinorLocator
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.dates import date2num
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 from datetime import datetime
 from typing import List, Dict
+
+from utils.plot_utils import GRID_COLOR
+
 
 class HistoryGammaPlot(QWidget):
     def __init__(self, parent=None):
@@ -33,10 +37,13 @@ class HistoryGammaPlot(QWidget):
             x = list(range(len(dates)))
             self.ax.set_xticks(x)
             self.ax.set_xticklabels([d.strftime('%Y-%m-%d') for d in dates], rotation=45, ha='right')
+            if len(x) > 1:
+                self.ax.set_xticks([index + 0.5 for index in range(len(x) - 1)], minor=True)
         else:
             x = date2num(dates)
             self.ax.xaxis_date()
             self.canvas.figure.autofmt_xdate()
+
 
         # Courbes gamma par canal
         colors = {"R": "red", "G": "green", "B": "blue"}
@@ -55,5 +62,11 @@ class HistoryGammaPlot(QWidget):
 
         self.ax.set_ylabel("Gamma")
         self.ax.set_title("Évolution des gammas")
+        self.ax.set_axisbelow(True)
+        self.ax.minorticks_on()
+        self.ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+        self.ax.grid(True, which="major", axis="both", linestyle="--", linewidth=0.5, color=GRID_COLOR, alpha=0.20)
+        self.ax.grid(True, which="minor", axis="both", linestyle=":", linewidth=0.35, color=GRID_COLOR, alpha=0.12)
         self.ax.legend()
         self.canvas.draw()
+

@@ -4,11 +4,13 @@
 
 import os
 from pathlib import Path
+from typing import Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QLineEdit,
     QComboBox, QLabel, QSplitter, QTabWidget, QApplication, QPushButton
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QDate, QSignalBlocker, QTimer
+
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
@@ -27,7 +29,6 @@ from ui.history_charts import (
     draw_hd_plot,
     draw_contrast_plot,
 )
-
 
 
 class HistoryWidget(QWidget):
@@ -56,7 +57,17 @@ class HistoryWidget(QWidget):
         """
         super().__init__(parent)
 
+        self.measurement_cache: dict[str, MeasurementSet] = {}
+        self.reference_cache: dict[str, MeasurementSet] = {}
+        self.last_clicked_item = None
+
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(75)
+        self._refresh_timer.timeout.connect(self.refresh_plot)
+
         # Splitter
+
         splitter = QSplitter(Qt.Horizontal)
 
         layout = QVBoxLayout()
@@ -168,7 +179,8 @@ class HistoryWidget(QWidget):
         self.date_filter.currentIndexChanged.connect(self.filter_files)
         # file list
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(2)
+        self.tree.setColumnCount(3)
+
         self.tree.setHeaderLabels(["", "Nom", "Date"])
         self.tree.setRootIsDecorated(True)
         self.tree.setSelectionMode(QTreeWidget.ExtendedSelection)
@@ -181,7 +193,8 @@ class HistoryWidget(QWidget):
         # reload measures list button
         reload_btn = QPushButton("\U0001F5D8")
         reload_btn.setToolTip("Recharger la list des mesures")
-        reload_btn.clicked.connect(self.load_files)
+        reload_btn.clicked.connect(self.reload_data)
+
         reload_btn.setMaximumWidth(30)
         right_layout.addWidget(reload_btn)
 
@@ -197,10 +210,8 @@ class HistoryWidget(QWidget):
         self.load_files()
         self.load_reference_files()
 
-        self.last_clicked_item = None
-
-        self.ref_selector.currentIndexChanged.connect(self.refresh_plot)
-        self.tree.itemChanged.connect(self.refresh_plot)
+        self.ref_selector.currentIndexChanged.connect(self.schedule_refresh)
+        self.tree.itemChanged.connect(self.schedule_refresh)
         self.tree.itemClicked.connect(self.toggle_item_check_state)
 
 
@@ -210,43 +221,61 @@ class HistoryWidget(QWidget):
         This function clears existing tree data and loads new measurement files
         from a specified directory, adding them to the tree widget for display.
         """
-        self.tree.clear()
-        for root, dirs, files in os.walk(MEASURES_PATH):
-            folder_name = os.path.basename(root)
-            folder_item = QTreeWidgetItem(["", folder_name, ""])
-            font = folder_item.font(1)
-            font.setBold(True)
-            for col in range(self.tree.columnCount()):
-                folder_item.setFont(col, font)
-            added = False
+        self.measurement_cache.clear()
 
-            measurements = []
-            for fname in files:
-                if fname.endswith(".json"):
+        blocker = QSignalBlocker(self.tree)
+        self.tree.setUpdatesEnabled(False)
+        try:
+            self.tree.clear()
+            for root, _, files in os.walk(MEASURES_PATH):
+                folder_name = os.path.basename(root)
+                folder_item = QTreeWidgetItem(["", folder_name, ""])
+                font = folder_item.font(1)
+                font.setBold(True)
+                for col in range(self.tree.columnCount()):
+                    folder_item.setFont(col, font)
+                added = False
+
+                measurements = []
+                for fname in files:
+                    if not fname.endswith(".json"):
+                        continue
+
                     fpath = os.path.join(root, fname)
                     measurement = MeasurementSet.load_from_file(Path(fpath))
-                    if measurement:
-                        measurements.append((measurement, fpath))
+                    if measurement is None:
+                        continue
 
-            # sort by date
-            measurements.sort(key=lambda tup: tup[0].date)
+                    path_key = str(fpath)
+                    self.measurement_cache[path_key] = measurement
+                    measurements.append((measurement, path_key))
 
-            for measurement, fpath in measurements:
-                name = measurement.name or Path(fpath).stem
-                date_str = measurement.date.strftime("%Y-%m-%d")
+                measurements.sort(key=lambda tup: tup[0].date)
 
-                item = QTreeWidgetItem(["", name, date_str])
-                item.setData(0, Qt.UserRole, str(fpath))
-                item.setCheckState(0, Qt.Unchecked)
-                item.setFlags(
-                    (item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled) & ~Qt.ItemIsUserCheckable
-                )
-                folder_item.addChild(item)
-                added = True
+                for measurement, path_key in measurements:
+                    name = measurement.name or Path(path_key).stem
+                    date_str = measurement.date.strftime("%Y-%m-%d")
 
-            if added:
-                self.tree.addTopLevelItem(folder_item)
-                folder_item.setExpanded(True)
+                    item = QTreeWidgetItem(["", name, date_str])
+                    item.setData(0, Qt.UserRole, path_key)
+                    item.setData(1, Qt.UserRole, name.lower())
+                    item.setData(2, Qt.UserRole, date_str)
+                    item.setCheckState(0, Qt.Unchecked)
+                    item.setFlags(
+                        (item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled) & ~Qt.ItemIsUserCheckable
+                    )
+                    folder_item.addChild(item)
+                    added = True
+
+                if added:
+                    self.tree.addTopLevelItem(folder_item)
+                    folder_item.setExpanded(True)
+        finally:
+            self.tree.setUpdatesEnabled(True)
+            del blocker
+
+        self.filter_files()
+
 
 
     def filter_files(self):
@@ -255,7 +284,7 @@ class HistoryWidget(QWidget):
         This function hides or shows files in the tree widget based on whether they
         match user-entered text or a selected date criterion.
         """
-        text = self.search_input.text().lower()
+        text = self.search_input.text().strip().lower()
         period = self.date_filter.currentText()
         now = QDate.currentDate()
 
@@ -266,17 +295,14 @@ class HistoryWidget(QWidget):
             visible = False
             for j in range(folder_item.childCount()):
                 child = folder_item.child(j)
-                label = child.text(0).lower()
-                m = MeasurementSet.load_from_file(Path(child.data(0, Qt.UserRole)))
-                if not m:
-                    continue
-                json_date = m.date.strftime("%Y-%m-%d")
+                label = child.data(1, Qt.UserRole) or child.text(1).lower()
+                json_date = child.data(2, Qt.UserRole) or child.text(2)
                 fdate = QDate.fromString(json_date, "yyyy-MM-dd")
 
                 match_text = text in label
                 match_date = True
                 if period == "Aujourd’hui":
-                    match_date = (fdate == now)
+                    match_date = fdate == now
                 elif period == "Ce mois-ci":
                     match_date = (fdate.month() == now.month() and fdate.year() == now.year())
                 elif period == "Cette année":
@@ -286,6 +312,7 @@ class HistoryWidget(QWidget):
                 child.setHidden(not is_match)
                 visible = visible or is_match
             folder_item.setHidden(not visible)
+
 
 
     def get_selected_files(self) -> list:
@@ -312,18 +339,41 @@ class HistoryWidget(QWidget):
         This function searches a designated folder for reference files and populates
         a combo box with these references.
         """
-        self.ref_selector.clear()
-        ref_path = os.path.join(MEASURES_PATH, "ref")
-        if not os.path.exists(ref_path):
-            return
+        current_ref_path = self.ref_selector.currentData()
+        self.reference_cache.clear()
 
-        for fname in sorted(os.listdir(ref_path)):
-            if fname.endswith(".json"):
+        blocker = QSignalBlocker(self.ref_selector)
+        try:
+            self.ref_selector.clear()
+            ref_path = os.path.join(MEASURES_PATH, "ref")
+            if not os.path.exists(ref_path):
+                return
+
+            selected_index = 0
+            for fname in sorted(os.listdir(ref_path)):
+                if not fname.endswith(".json"):
+                    continue
+
                 fpath = os.path.join(ref_path, fname)
-                self.ref_selector.addItem(fname, fpath)
+                measurement = MeasurementSet.load_from_file(Path(fpath))
+                if measurement is None:
+                    continue
+
+                path_key = str(fpath)
+                self.reference_cache[path_key] = measurement
+                display_name = measurement.name or fname
+                self.ref_selector.addItem(display_name, path_key)
+
+                if path_key == current_ref_path:
+                    selected_index = self.ref_selector.count() - 1
+
+            if self.ref_selector.count() > 0:
+                self.ref_selector.setCurrentIndex(selected_index)
+        finally:
+            del blocker
 
 
-    def get_reference_file(self):
+    def get_reference_file(self) -> Optional[str]:
         """Retrieves the currently selected reference file.
 
         Returns:
@@ -332,46 +382,115 @@ class HistoryWidget(QWidget):
         return self.ref_selector.currentData()
 
 
-    def toggle_item_check_state(self, item):
+    def _get_measurement(self, path: Optional[str]) -> Optional[MeasurementSet]:
+        """Returns a measurement from cache, loading it only if needed."""
+        if not path:
+            return None
+
+        measurement = self.measurement_cache.get(path)
+        if measurement is not None:
+            return measurement
+
+        measurement = MeasurementSet.load_from_file(Path(path))
+        if measurement is not None:
+            self.measurement_cache[path] = measurement
+        return measurement
+
+
+    def get_reference_measurement(self) -> Optional[MeasurementSet]:
+        """Returns the currently selected reference measurement from cache."""
+        ref_path = self.get_reference_file()
+        if not ref_path:
+            return None
+
+        measurement = self.reference_cache.get(ref_path)
+        if measurement is not None:
+            return measurement
+
+        measurement = MeasurementSet.load_from_file(Path(ref_path))
+        if measurement is not None:
+            self.reference_cache[ref_path] = measurement
+        return measurement
+
+
+    def reload_data(self):
+        """Reloads measurement and reference lists from disk."""
+        self.load_files()
+        self.load_reference_files()
+        self.schedule_refresh()
+
+
+    def schedule_refresh(self, *_args):
+        """Debounces plot refreshes to avoid redrawing on every checkbox event."""
+        self._refresh_timer.start()
+
+
+    def _iter_plot_targets(self):
+        """Yields every matplotlib axis/canvas pair managed by the history view."""
+        return [
+            (self.gamma_plot.ax, self.gamma_plot.canvas),
+            (self.dmin_ax, self.dmin_canvas),
+            (self.dmax_ax, self.dmax_canvas),
+            (self.d11_ax, self.d11_canvas),
+            (self.ld_ax, self.ld_canvas),
+            (self.md_ax, self.md_canvas),
+            (self.hd_ax, self.hd_canvas),
+            (self.contrast_ax, self.contrast_canvas),
+        ]
+
+
+    def _clear_all_plots(self):
+        """Clears every history plot."""
+        for ax, canvas in self._iter_plot_targets():
+            ax.clear()
+            canvas.draw_idle()
+
+
+    def toggle_item_check_state(self, item, _column=0):
         """Toggles the check state for a tree widget item and its children.
 
         Args:
             item: The QTreeWidgetItem to toggle.
         """
-        if item.childCount() > 0:
-            all_checked = all(item.child(i).checkState(0) == Qt.Checked for i in range(item.childCount()))
-            new_state = Qt.Unchecked if all_checked else Qt.Checked
-            for i in range(item.childCount()):
-                item.child(i).setCheckState(0, new_state)
-            return
+        blocker = QSignalBlocker(self.tree)
+        try:
+            if item.childCount() > 0:
+                all_checked = all(item.child(i).checkState(0) == Qt.Checked for i in range(item.childCount()))
+                new_state = Qt.Unchecked if all_checked else Qt.Checked
+                for i in range(item.childCount()):
+                    item.child(i).setCheckState(0, new_state)
+                self.last_clicked_item = None
+            else:
+                modifiers = QApplication.keyboardModifiers()
+                current_state = item.checkState(0)
 
-        modifiers = QApplication.keyboardModifiers()
-        current_state = item.checkState(0)
+                if modifiers == Qt.ShiftModifier and self.last_clicked_item:
+                    all_items = []
+                    for i in range(self.tree.topLevelItemCount()):
+                        parent = self.tree.topLevelItem(i)
+                        if parent is None:
+                            continue
+                        for j in range(parent.childCount()):
+                            all_items.append(parent.child(j))
 
-        if modifiers == Qt.ShiftModifier and self.last_clicked_item:
-            all_items = []
-            for i in range(self.tree.topLevelItemCount()):
-                parent = self.tree.topLevelItem(i)
-                if parent is None:
-                    continue
-                for j in range(parent.childCount()):
-                    all_items.append(parent.child(j))
+                    try:
+                        i1 = all_items.index(self.last_clicked_item)
+                        i2 = all_items.index(item)
+                        start, end = sorted([i1, i2])
+                        new_state = Qt.Checked if current_state != Qt.Checked else Qt.Unchecked
+                        for it in all_items[start:end + 1]:
+                            it.setCheckState(0, new_state)
+                    except ValueError:
+                        item.setCheckState(0, Qt.Checked if current_state != Qt.Checked else Qt.Unchecked)
+                else:
+                    new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
+                    item.setCheckState(0, new_state)
 
-            try:
-                i1 = all_items.index(self.last_clicked_item)
-                i2 = all_items.index(item)
-                start, end = sorted([i1, i2])
-                new_state = Qt.Checked if current_state != Qt.Checked else Qt.Unchecked
-                for it in all_items[start:end + 1]:
-                    it.setCheckState(0, new_state)
-            except ValueError:
-                item.setCheckState(0, Qt.Checked if current_state != Qt.Checked else Qt.Unchecked)
-        else:
-            # Simple toggle
-            new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
-            item.setCheckState(0, new_state)
+                self.last_clicked_item = item
+        finally:
+            del blocker
 
-        self.last_clicked_item = item
+        self.schedule_refresh()
 
 
     def refresh_plot(self):
@@ -380,30 +499,28 @@ class HistoryWidget(QWidget):
         currently selected measurement files and reference curves.
 
         """
-        ref_path = self.get_reference_file()
-        if not ref_path:
-            print("no ref path found")
-            return
-
-        ref = MeasurementSet.load_from_file(Path(ref_path))
-        if not ref:
-            print("no file found:", ref_path)
+        ref = self.get_reference_measurement()
+        if ref is None:
+            self._clear_all_plots()
             return
 
         selected_paths = self.get_selected_files()
-        measures = [MeasurementSet.load_from_file(Path(p)) for p in selected_paths]
+        if not selected_paths:
+            self._clear_all_plots()
+            return
+
+        measures = [self._get_measurement(path) for path in selected_paths]
         measures = [m for m in measures if m is not None]
         if not measures:
-            print(f"no measures found in: {selected_paths}")
+            self._clear_all_plots()
             return
         measures.sort(key=lambda m: m.date)
-        
+
         analyzer = HistoryAnalyzer(ref, measures)
 
         dates = [m.date for m in measures]
         str_dates = [d.strftime("%Y-%m-%d") for d in dates]
 
-        # draw each curves in each tab
         draw_gamma_plot(self.gamma_plot.ax, self.gamma_plot.canvas, analyzer, ref, str_dates)
         draw_dmin_plot(self.dmin_ax, self.dmin_canvas, analyzer, ref, str_dates)
         draw_dmax_plot(self.dmax_ax, self.dmax_canvas, analyzer, ref, str_dates)
@@ -412,10 +529,6 @@ class HistoryWidget(QWidget):
         draw_md_plot(self.md_ax, self.md_canvas, analyzer, ref, str_dates)
         draw_hd_plot(self.hd_ax, self.hd_canvas, analyzer, ref, str_dates)
         draw_contrast_plot(self.contrast_ax, self.contrast_canvas, analyzer, ref, str_dates)
-
-        print("Measures:", len(measures))
-        print("Channels:", list(ref.curves.keys()))
-        print("Dates:", dates)
 
 
     def auto_resize_columns(self):
@@ -431,9 +544,17 @@ class HistoryWidget(QWidget):
         """
         Uncheck all child items and clear the plot.
         """
-        for i in range(self.tree.topLevelItemCount()):
-            folder_item = self.tree.topLevelItem(i)
-            if folder_item is None: return
-            for j in range(folder_item.childCount()):
-                child = folder_item.child(j)
-                child.setCheckState(0, Qt.Unchecked)
+        blocker = QSignalBlocker(self.tree)
+        try:
+            for i in range(self.tree.topLevelItemCount()):
+                folder_item = self.tree.topLevelItem(i)
+                if folder_item is None:
+                    continue
+                for j in range(folder_item.childCount()):
+                    child = folder_item.child(j)
+                    child.setCheckState(0, Qt.Unchecked)
+        finally:
+            del blocker
+
+        self.last_clicked_item = None
+        self._clear_all_plots()

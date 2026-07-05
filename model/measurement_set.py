@@ -3,8 +3,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 import json
+
 
 
 @dataclass
@@ -40,7 +41,7 @@ class MeasurementSet:
     def load_from_file(cls, path: Path) -> Optional["MeasurementSet"]:
         """Creates a `MeasurementSet` instance from a JSON file.
 
-        Validates and reads the measurement data from the specified file, extracting attributes such as curves, date, name, and color. 
+        Validates and reads the measurement data from the specified file, extracting attributes such as curves, date, name, and color.
         It parses the JSON content and instantiates a `MeasurementSet` if the file is valid and contains required data.
 
         Args:
@@ -49,13 +50,11 @@ class MeasurementSet:
         Returns:
             Optional[MeasurementSet]: A `MeasurementSet` instance if successful, otherwise `None`.
         """
-        if not cls._is_valid_file(path):
-            print(f"Invalid file ignored : {path.name}")
-            return None
-
         try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            data = cls._load_json_data(path)
+            if data is None or not cls._is_valid_data(data):
+                print(f"Invalid file ignored : {path.name}")
+                return None
 
             name = data.get("name")
             color = data.get("color")
@@ -82,10 +81,22 @@ class MeasurementSet:
 
 
     @staticmethod
-    def _is_valid_file(path: Path) -> bool:
+    def _load_json_data(path: Path) -> Optional[Dict[str, Any]]:
+        """Loads raw JSON data from a measurement file."""
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else None
+        except Exception:
+            return None
+
+
+
+    @classmethod
+    def _is_valid_file(cls, path: Path) -> bool:
         """Validates the structure and content of a specified measurement file.
 
-        Checks the file to ensure it contains expected JSON keys and value structures needed for a valid measurement set. 
+        Checks the file to ensure it contains expected JSON keys and value structures needed for a valid measurement set.
         This includes checking `values` structure and format of `date`.
 
         Args:
@@ -94,29 +105,31 @@ class MeasurementSet:
         Returns:
             bool: `True` if the file is considered valid, `False` otherwise.
         """
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+        data = cls._load_json_data(path)
+        return cls._is_valid_data(data) if data is not None else False
 
-            values = data.get("values", {})
-            if not isinstance(values, dict):
-                return False
-            if not any(isinstance(v, list) and len(v) == 21 for v in values.values()):
-                return False
 
-            date_str = data.get("date")
-            if date_str:
-                try:
-                    datetime.fromisoformat(date_str)
-                except ValueError:
-                    try:
-                        datetime.strptime(date_str, "%Y-%m-%d_%H%M")
-                    except ValueError:
-                        return False
-
-            return True
-        except Exception:
+    @staticmethod
+    def _is_valid_data(data: Dict[str, Any]) -> bool:
+        """Validates already loaded measurement JSON data."""
+        values = data.get("values", {})
+        if not isinstance(values, dict):
             return False
+        if not any(isinstance(v, list) and len(v) == 21 for v in values.values()):
+            return False
+
+        date_str = data.get("date")
+        if date_str:
+            try:
+                datetime.fromisoformat(date_str)
+            except ValueError:
+                try:
+                    datetime.strptime(date_str, "%Y-%m-%d_%H%M")
+                except ValueError:
+                    return False
+
+        return True
+
 
 
     @staticmethod

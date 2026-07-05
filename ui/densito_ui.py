@@ -215,6 +215,11 @@ class AdditiveCurveWidget(QWidget):
 			painter.setPen(QPen(QColor(255, 255, 255, 20), 1))
 			painter.drawLine(QPointF(x, plot_rect.top()), QPointF(x, plot_rect.bottom()))
 
+			if index < tick_count:
+				mid_x = map_x(index + 0.5)
+				painter.setPen(QPen(QColor(255, 255, 255, 20), 1, Qt.PenStyle.DotLine))
+				painter.drawLine(QPointF(mid_x, plot_rect.top()), QPointF(mid_x, plot_rect.bottom()))
+
 			label = self.x_tick_labels[index - 1] if index - 1 < len(self.x_tick_labels) else str(index)
 			lines = str(label).split("\n")
 			for line_index, line in enumerate(lines):
@@ -222,11 +227,21 @@ class AdditiveCurveWidget(QWidget):
 				painter.setPen(QColor("#d0d0d0"))
 				painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, line)
 
+
+		y_minor_step = y_step / 10
 		y_value = 0.0
 		while y_value <= y_max + (y_step / 2):
 			y = map_y(y_value)
 			painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
 			painter.drawLine(QPointF(plot_rect.left(), y), QPointF(plot_rect.right(), y))
+
+			minor_value = y_value + y_minor_step
+			while minor_value < y_value + y_step and minor_value <= y_max:
+				minor_y = map_y(minor_value)
+				painter.setPen(QPen(QColor(255, 255, 255, 20), 1, Qt.PenStyle.DotLine))
+				painter.drawLine(QPointF(plot_rect.left(), minor_y), QPointF(plot_rect.right(), minor_y))
+				minor_value += y_minor_step
+
 			painter.setPen(QColor("#d0d0d0"))
 			painter.drawText(QRectF(6, y - 8, left_margin - 14, 16), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f"{y_value:.2f}")
 			y_value += y_step
@@ -478,8 +493,6 @@ class CurveWidget(QWidget):
 		self.plot_tabs.addTab(deltad_graph_widget, "delta-d")
 		self.plot_tabs.addTab(rgbdelta_graph_widget, "ΔRGB")
 		plot_layout.addWidget(self.plot_tabs)
-
-
 
 		# Stats bloc
 		self.stat_labels = {}
