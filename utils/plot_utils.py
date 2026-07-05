@@ -161,8 +161,8 @@ def draw_curve_graph(
 	nb_x_ticks: int = 21,
 	allow_negative: bool = False,
 	x_tick_labels: Optional[Sequence[str]] = None,
+	y_major_step: Optional[float] = None,
 ):
-
 	"""
 	Draws multiple curves on a given matplotlib axis.
 
@@ -177,6 +177,8 @@ def draw_curve_graph(
 		nb_x_ticks (int): Number of ticks on the X-axis.
 		allow_negative (bool): Allows negative ticks if true.
 		x_tick_labels (Optional[Sequence[str]]): Custom labels for numeric X-axis ticks.
+		y_major_step (Optional[float]): Fixed spacing for major Y ticks when provided.
+
 
 	Returns:
 		None
@@ -234,7 +236,9 @@ def draw_curve_graph(
 
 	# Adjust y ticks
 	y_span = global_ymax - global_ymin
-	if y_span <= 0.05:
+	if y_major_step is not None and y_major_step > 0:
+		step = y_major_step
+	elif y_span <= 0.05:
 		step = 0.01
 	elif y_span <= 0.2:
 		step = 0.02

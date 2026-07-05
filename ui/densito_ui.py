@@ -40,15 +40,18 @@ class AdditiveCurveWidget(QWidget):
 		self.xlabel = "Measurement"
 		self.ylabel = "Density"
 		self.x_tick_labels = []
+		self.y_major_step = None
 		self.setMinimumHeight(320)
 
 
-	def set_plot_data(self, curves=None, title="", xlabel="Measurement", ylabel="Density", x_tick_labels=None):
+
+	def set_plot_data(self, curves=None, title="", xlabel="Measurement", ylabel="Density", x_tick_labels=None, y_major_step=None):
 		self.curves = curves or {}
 		self.title = title or "Histogramme additif"
 		self.xlabel = xlabel
 		self.ylabel = ylabel
 		self.x_tick_labels = list(x_tick_labels or [])
+		self.y_major_step = y_major_step
 		self.update()
 
 
@@ -80,7 +83,9 @@ class AdditiveCurveWidget(QWidget):
 		x_min = 1.0 if global_xmin == float("inf") else min(1.0, global_xmin)
 		x_max = float(tick_max) if global_xmax == float("-inf") else max(float(tick_max), global_xmax)
 
-		if global_ymax <= 0.05:
+		if self.y_major_step is not None and self.y_major_step > 0:
+			step = self.y_major_step
+		elif global_ymax <= 0.05:
 			step = 0.01
 		elif global_ymax <= 0.2:
 			step = 0.02
@@ -950,7 +955,9 @@ class CurveWidget(QWidget):
 			xlabel="Measurement",
 			ylabel="Density",
 			x_tick_labels=self._graph_step_labels(),
+			y_major_step=0.3,
 		)
+
 		
 		self.ax_sensito.axvline(x=11, color="black", linestyle="--", linewidth=1.0, alpha=0.2)
 		self.sensito_canvas.draw()
@@ -964,6 +971,7 @@ class CurveWidget(QWidget):
 			xlabel="Measurement",
 			ylabel="Density",
 			x_tick_labels=self._graph_step_labels(),
+			y_major_step=0.3,
 		)
 
 
