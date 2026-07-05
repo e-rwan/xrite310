@@ -4,6 +4,22 @@ from utils.plot_utils import draw_curve_graph, build_curve_data
 from lib.gamma import GammaAnalyzer
 
 
+CHANNEL_COLORS = {
+    "v": "grey",
+    "r": "red",
+    "g": "green",
+    "b": "blue",
+    "c": "cyan",
+    "m": "magenta",
+    "y": "gold",
+}
+
+
+def _get_channel_color(channel: str):
+    """Returns the plotting color associated with a channel."""
+    return CHANNEL_COLORS.get(channel.lower()) if channel else None
+
+
 def _get_ref_gamma_reading_value(values, attribute: str):
     """Returns a gamma-reading attribute from a reference curve."""
     reading = GammaAnalyzer().get_gamma_from_values(values)
@@ -45,7 +61,7 @@ def draw_gamma_plot(ax, canvas, analyzer, ref, dates):
         ch: {
             "x": dates,
             "y": values,
-            "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower()),
+            "color": _get_channel_color(ch),
             "linestyle": "-"
         }
         for ch, values in gamma_data.items()
@@ -54,7 +70,7 @@ def draw_gamma_plot(ax, canvas, analyzer, ref, dates):
         curves[f"Réf {ch.upper()}"] = {
             "x": dates,
             "y": [val] * len(dates),
-            "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower()),
+            "color": _get_channel_color(ch),
             "linestyle": "--"
         }
     draw_curve_graph(
@@ -94,7 +110,7 @@ def draw_dmin_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="Dmin RGB",
+        title="Dmin",
         xlabel="Date",
         ylabel="Dmin",
         nb_x_ticks=len(dates)
@@ -127,7 +143,7 @@ def draw_dmax_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="Dmax RGB",
+        title="Dmax",
         xlabel="Date",
         ylabel="Dmax",
         nb_x_ticks=len(dates)
@@ -160,7 +176,7 @@ def draw_d11_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="D11 RGB",
+        title="D11",
         xlabel="Date",
         ylabel="D11",
         nb_x_ticks=len(dates)
@@ -182,7 +198,7 @@ def draw_ld_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="LD RGB",
+        title="LD",
         xlabel="Date",
         ylabel="LD",
         nb_x_ticks=len(dates)
@@ -204,7 +220,7 @@ def draw_md_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="MD RGB",
+        title="MD",
         xlabel="Date",
         ylabel="MD",
         nb_x_ticks=len(dates)
@@ -226,7 +242,7 @@ def draw_hd_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="HD RGB",
+        title="HD",
         xlabel="Date",
         ylabel="HD",
         nb_x_ticks=len(dates)
@@ -248,7 +264,7 @@ def draw_contrast_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="Contrast RGB",
+        title="Contrast",
         xlabel="Date",
         ylabel="Contrast",
         nb_x_ticks=len(dates)

@@ -7,7 +7,11 @@ from model.measurement_set import MeasurementSet
 from lib.gamma import GammaAnalyzer
 
 
+CHANNEL_DISPLAY_ORDER = ("V", "R", "G", "B", "C", "M", "Y")
+
+
 class HistoryAnalyzer:
+
     """Analyzes historical measurement data to track changes in curves and gamma values.
 
     This class handles a collection of measurement sets, allowing for the comparison
@@ -65,9 +69,20 @@ class HistoryAnalyzer:
         return self.reference.curves[channel].values if channel in self.reference.curves else [0.0]*21
 
 
+    def _get_channels(self) -> List[str]:
+        """Returns every available channel found in the reference or measurements."""
+        channels = set(self.reference.curves.keys())
+        for measurement in self.measurements:
+            channels.update(measurement.curves.keys())
+
+        ordered_channels = [channel for channel in CHANNEL_DISPLAY_ORDER if channel in channels]
+        remaining_channels = sorted(channel for channel in channels if channel not in CHANNEL_DISPLAY_ORDER)
+        return ordered_channels + remaining_channels
+
+
     def _get_gamma_metric_evolution(self, metric_name: str) -> Dict[str, List[float]]:
         """Tracks the evolution of a gamma-reading metric across measurements."""
-        result = {"R": [], "G": [], "B": []}
+        result = {channel: [] for channel in self._get_channels()}
         analyzer = GammaAnalyzer()
 
         for m in self.measurements:
@@ -79,6 +94,7 @@ class HistoryAnalyzer:
                 else:
                     result[channel].append(None)
         return result
+
 
 
     def get_gamma_evolution(self) -> Dict[str, List[float]]:
@@ -107,7 +123,7 @@ class HistoryAnalyzer:
 
     def get_contrast_evolution(self) -> Dict[str, List[float]]:
         """Tracks the evolution of contrast values across measurements."""
-        result = {"R": [], "G": [], "B": []}
+        result = {channel: [] for channel in self._get_channels()}
         analyzer = GammaAnalyzer()
 
         for m in self.measurements:
@@ -125,18 +141,20 @@ class HistoryAnalyzer:
         return result
 
 
+
     def get_dmin_evolution(self) -> Dict[str, List[float]]:
         """Determines the evolution of minimum density values for each channel.
 
         Returns:
             Dict[str, List[float]]: A dictionary with minimum density evolution for each channel.
         """
-        result = {"R": [], "G": [], "B": []}
+        result = {channel: [] for channel in self._get_channels()}
         for m in self.measurements:
             for channel in result:
                 curve = m.curves.get(channel)
                 result[channel].append(min(curve.values) if curve else None)
         return result
+
 
 
     def get_dmax_evolution(self) -> Dict[str, List[float]]:
@@ -145,7 +163,7 @@ class HistoryAnalyzer:
         Returns:
             Dict[str, List[float]]: A dictionary with maximum density evolution for each channel.
         """
-        result = {"R": [], "G": [], "B": []}
+        result = {channel: [] for channel in self._get_channels()}
         for m in self.measurements:
             for channel in result:
                 curve = m.curves.get(channel)
@@ -153,9 +171,10 @@ class HistoryAnalyzer:
         return result
 
 
+
     def get_d11_evolution(self) -> Dict[str, List[float]]:
         """Determines the evolution of D-11 values for each channel."""
-        result = {"R": [], "G": [], "B": []}
+        result = {channel: [] for channel in self._get_channels()}
         for m in self.measurements:
             for channel in result:
                 curve = m.curves.get(channel)

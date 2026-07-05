@@ -6,6 +6,22 @@ from typing import Callable, Optional, Sequence
 
 from model.measurement_set import MeasurementSet
 
+CHANNEL_COLORS = {
+    "v": "grey",
+    "r": "red",
+    "g": "green",
+    "b": "blue",
+    "c": "cyan",
+    "m": "magenta",
+    "y": "gold",
+}
+
+
+def get_channel_color(channel: str) -> Optional[str]:
+    """Returns the plotting color associated with a channel."""
+    return CHANNEL_COLORS.get(channel.lower()) if channel else None
+
+
 class ColorChannelSet:
     """
     Manages color channels for visualization purposes.
@@ -79,9 +95,10 @@ def build_curve_data(
         curves[ch] = {
             "x": dates,
             "y": values,
-            "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower(), None),
+            "color": get_channel_color(ch),
             "linestyle": linestyle
         }
+
 
     if ref and ref_func:
         for ch in ref.curves:
@@ -89,10 +106,9 @@ def build_curve_data(
             curves[f"Réf {ch.upper()}"] = {
                 "x": dates,
                 "y": [ref_val] * len(dates),
-                "color": {"r": "red", "g": "green", "b": "blue"}.get(ch.lower(), None),
+                "color": get_channel_color(ch),
                 "linestyle": ref_linestyle
             }
-
     return curves
 
 
