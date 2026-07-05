@@ -35,6 +35,18 @@ COLOR_SET: Final[Dict[str|None, ColorChannelSet]] = {
 }
 
 STATS_LABELS: Final[Dict[str, List[str]]] = {
-    "ref": ["Gamma ref", "Gamma ref r", "Gamma ref g", "Gamma ref b"],
-    "meas": ["Gamma", "Gamma r", "Gamma g", "Gamma b"]
+    "ref": [
+        "Contrast ref",
+        "Gamma ref",
+        "Gamma ref r",
+        "Gamma ref g",
+        "Gamma ref b",
+    ],
+    "meas": [
+        "Contrast",
+        "Gamma",
+        "Gamma r",
+        "Gamma g",
+        "Gamma b",
+    ]
 }

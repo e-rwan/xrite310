@@ -1,3 +1,5 @@
+# lib/history_analyser.py
+
 from typing import List, Dict
 from statistics import mean
 from datetime import datetime
@@ -63,24 +65,64 @@ class HistoryAnalyzer:
         return self.reference.curves[channel].values if channel in self.reference.curves else [0.0]*21
 
 
+    def _get_gamma_metric_evolution(self, metric_name: str) -> Dict[str, List[float]]:
+        """Tracks the evolution of a gamma-reading metric across measurements."""
+        result = {"R": [], "G": [], "B": []}
+        analyzer = GammaAnalyzer()
+
+        for m in self.measurements:
+            for channel in result:
+                curve = m.curves.get(channel)
+                if curve:
+                    reading = analyzer.get_gamma_from_values(curve.values)
+                    result[channel].append(getattr(reading, metric_name, None))
+                else:
+                    result[channel].append(None)
+        return result
+
+
     def get_gamma_evolution(self) -> Dict[str, List[float]]:
         """Tracks the evolution of gamma values across measurements.
 
         Returns:
             Dict[str, List[float]]: A dictionary with gamma evolutions for each channel.
         """
-        gamma_evolution = {"R": [], "G": [], "B": []}
+        return self._get_gamma_metric_evolution("gamma")
+
+
+    def get_ld_evolution(self) -> Dict[str, List[float]]:
+        """Tracks the evolution of LD values across measurements."""
+        return self._get_gamma_metric_evolution("ld")
+
+
+    def get_md_evolution(self) -> Dict[str, List[float]]:
+        """Tracks the evolution of MD values across measurements."""
+        return self._get_gamma_metric_evolution("md")
+
+
+    def get_hd_evolution(self) -> Dict[str, List[float]]:
+        """Tracks the evolution of HD values across measurements."""
+        return self._get_gamma_metric_evolution("hd")
+
+
+    def get_contrast_evolution(self) -> Dict[str, List[float]]:
+        """Tracks the evolution of contrast values across measurements."""
+        result = {"R": [], "G": [], "B": []}
         analyzer = GammaAnalyzer()
 
         for m in self.measurements:
-            for channel in gamma_evolution:
+            for channel in result:
                 curve = m.curves.get(channel)
-                if curve:
-                    reading = analyzer.get_gamma_from_values(curve.values)
-                    gamma_evolution[channel].append(reading.gamma)
+                if not curve:
+                    result[channel].append(None)
+                    continue
+
+                reading = analyzer.get_gamma_from_values(curve.values)
+                if reading.hd is None or reading.ld is None:
+                    result[channel].append(None)
                 else:
-                    gamma_evolution[channel].append(None)
-        return gamma_evolution
+                    result[channel].append(reading.hd - reading.ld)
+        return result
 
 
     def get_dmin_evolution(self) -> Dict[str, List[float]]:
@@ -108,4 +150,14 @@ class HistoryAnalyzer:
             for channel in result:
                 curve = m.curves.get(channel)
                 result[channel].append(max(curve.values) if curve else None)
+        return result
+
+
+    def get_d11_evolution(self) -> Dict[str, List[float]]:
+        """Determines the evolution of D-11 values for each channel."""
+        result = {"R": [], "G": [], "B": []}
+        for m in self.measurements:
+            for channel in result:
+                curve = m.curves.get(channel)
+                result[channel].append(curve.values[10] if curve and len(curve.values) > 10 else None)
         return result

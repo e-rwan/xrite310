@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QLineEdit,
-    QComboBox, QLabel, QSplitter, QTabWidget, QApplication
+    QComboBox, QLabel, QSplitter, QTabWidget, QApplication, QPushButton
 )
 from PySide6.QtCore import Qt, QDate
 from matplotlib.figure import Figure
@@ -17,7 +17,17 @@ from constants import MEASURES_PATH
 from model.measurement_set import MeasurementSet
 from lib.history_analyzer import HistoryAnalyzer
 from ui.history_gamma_plot import HistoryGammaPlot
-from ui.history_charts import draw_gamma_plot, draw_dmin_plot, draw_dmax_plot
+from ui.history_charts import (
+    draw_gamma_plot,
+    draw_dmin_plot,
+    draw_dmax_plot,
+    draw_d11_plot,
+    draw_ld_plot,
+    draw_md_plot,
+    draw_hd_plot,
+    draw_contrast_plot,
+)
+
 
 
 class HistoryWidget(QWidget):
@@ -80,7 +90,62 @@ class HistoryWidget(QWidget):
         dmax_layout.addWidget(self.dmax_canvas)
         dmax_layout.addWidget(self.dmax_toolbar)
         self.tabs.addTab(dmax_widget, "D-max")
-        
+        # D-11
+        d11_widget = QWidget()
+        d11_layout = QVBoxLayout()
+        d11_widget.setLayout(d11_layout)
+        self.d11_fig = Figure()
+        self.d11_canvas = FigureCanvas(self.d11_fig)
+        self.d11_ax = self.d11_fig.add_subplot(111)
+        self.d11_toolbar = NavigationToolbar(self.d11_canvas, self)
+        d11_layout.addWidget(self.d11_canvas)
+        d11_layout.addWidget(self.d11_toolbar)
+        self.tabs.addTab(d11_widget, "D-11")
+        # LD
+        ld_widget = QWidget()
+        ld_layout = QVBoxLayout()
+        ld_widget.setLayout(ld_layout)
+        self.ld_fig = Figure()
+        self.ld_canvas = FigureCanvas(self.ld_fig)
+        self.ld_ax = self.ld_fig.add_subplot(111)
+        self.ld_toolbar = NavigationToolbar(self.ld_canvas, self)
+        ld_layout.addWidget(self.ld_canvas)
+        ld_layout.addWidget(self.ld_toolbar)
+        self.tabs.addTab(ld_widget, "LD")
+        # MD
+        md_widget = QWidget()
+        md_layout = QVBoxLayout()
+        md_widget.setLayout(md_layout)
+        self.md_fig = Figure()
+        self.md_canvas = FigureCanvas(self.md_fig)
+        self.md_ax = self.md_fig.add_subplot(111)
+        self.md_toolbar = NavigationToolbar(self.md_canvas, self)
+        md_layout.addWidget(self.md_canvas)
+        md_layout.addWidget(self.md_toolbar)
+        self.tabs.addTab(md_widget, "MD")
+        # HD
+        hd_widget = QWidget()
+        hd_layout = QVBoxLayout()
+        hd_widget.setLayout(hd_layout)
+        self.hd_fig = Figure()
+        self.hd_canvas = FigureCanvas(self.hd_fig)
+        self.hd_ax = self.hd_fig.add_subplot(111)
+        self.hd_toolbar = NavigationToolbar(self.hd_canvas, self)
+        hd_layout.addWidget(self.hd_canvas)
+        hd_layout.addWidget(self.hd_toolbar)
+        self.tabs.addTab(hd_widget, "HD")
+        # Contrast
+        contrast_widget = QWidget()
+        contrast_layout = QVBoxLayout()
+        contrast_widget.setLayout(contrast_layout)
+        self.contrast_fig = Figure()
+        self.contrast_canvas = FigureCanvas(self.contrast_fig)
+        self.contrast_ax = self.contrast_fig.add_subplot(111)
+        self.contrast_toolbar = NavigationToolbar(self.contrast_canvas, self)
+        contrast_layout.addWidget(self.contrast_canvas)
+        contrast_layout.addWidget(self.contrast_toolbar)
+        self.tabs.addTab(contrast_widget, "Contrast")
+ 
         splitter.addWidget(self.tabs)
 
         # File selection panel
@@ -103,8 +168,8 @@ class HistoryWidget(QWidget):
         self.date_filter.currentIndexChanged.connect(self.filter_files)
         # file list
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(4)
-        self.tree.setHeaderLabels(["", "Nom", "Canaux", "Date"])
+        self.tree.setColumnCount(2)
+        self.tree.setHeaderLabels(["", "Nom", "Date"])
         self.tree.setRootIsDecorated(True)
         self.tree.setSelectionMode(QTreeWidget.ExtendedSelection)
 
@@ -112,11 +177,18 @@ class HistoryWidget(QWidget):
         right_layout.addWidget(self.search_input)
         right_layout.addWidget(self.date_filter)
         right_layout.addWidget(QLabel("Mesures disponibles"))
+
+        # reload measures list button
+        reload_btn = QPushButton("\U0001F5D8")
+        reload_btn.setToolTip("Recharger la list des mesures")
+        reload_btn.clicked.connect(self.load_files)
+        reload_btn.setMaximumWidth(30)
+        right_layout.addWidget(reload_btn)
+
         right_layout.addWidget(self.tree)
-        self.tree.setColumnWidth(0, 75)   # Checkbox
+        self.tree.setColumnWidth(0, 30)   # Checkbox
         self.tree.setColumnWidth(1, 100)  # Nom
-        self.tree.setColumnWidth(2, 50)  # Canaux
-        self.tree.setColumnWidth(3, 75)  # Date
+        self.tree.setColumnWidth(2, 75)  # Date
 
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 3)
@@ -140,7 +212,12 @@ class HistoryWidget(QWidget):
         """
         self.tree.clear()
         for root, dirs, files in os.walk(MEASURES_PATH):
-            folder_item = QTreeWidgetItem([os.path.basename(root)])
+            folder_name = os.path.basename(root)
+            folder_item = QTreeWidgetItem(["", folder_name, ""])
+            font = folder_item.font(1)
+            font.setBold(True)
+            for col in range(self.tree.columnCount()):
+                folder_item.setFont(col, font)
             added = False
 
             measurements = []
@@ -156,10 +233,9 @@ class HistoryWidget(QWidget):
 
             for measurement, fpath in measurements:
                 name = measurement.name or Path(fpath).stem
-                channels = ", ".join(measurement.curves.keys())
                 date_str = measurement.date.strftime("%Y-%m-%d")
 
-                item = QTreeWidgetItem(["", name, channels, date_str])
+                item = QTreeWidgetItem(["", name, date_str])
                 item.setData(0, Qt.UserRole, str(fpath))
                 item.setCheckState(0, Qt.Unchecked)
                 item.setFlags(
@@ -300,9 +376,9 @@ class HistoryWidget(QWidget):
 
     def refresh_plot(self):
         """Refreshes plot displays with selected measurements and reference data.
-
-        This function updates the gamma, D-min, and D-max plots using the
+        This function updates the gamma, density, and LD/MD/HD plots using the
         currently selected measurement files and reference curves.
+
         """
         ref_path = self.get_reference_file()
         if not ref_path:
@@ -331,6 +407,11 @@ class HistoryWidget(QWidget):
         draw_gamma_plot(self.gamma_plot.ax, self.gamma_plot.canvas, analyzer, ref, str_dates)
         draw_dmin_plot(self.dmin_ax, self.dmin_canvas, analyzer, ref, str_dates)
         draw_dmax_plot(self.dmax_ax, self.dmax_canvas, analyzer, ref, str_dates)
+        draw_d11_plot(self.d11_ax, self.d11_canvas, analyzer, ref, str_dates)
+        draw_ld_plot(self.ld_ax, self.ld_canvas, analyzer, ref, str_dates)
+        draw_md_plot(self.md_ax, self.md_canvas, analyzer, ref, str_dates)
+        draw_hd_plot(self.hd_ax, self.hd_canvas, analyzer, ref, str_dates)
+        draw_contrast_plot(self.contrast_ax, self.contrast_canvas, analyzer, ref, str_dates)
 
         print("Measures:", len(measures))
         print("Channels:", list(ref.curves.keys()))

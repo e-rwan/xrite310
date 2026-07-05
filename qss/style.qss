@@ -19,7 +19,7 @@ QLabel.stat-value {
     padding: 4px 8px;
     border: 1px solid #bbb;
     border-radius: 4px;
-    background-color: #28315e;
+    background-color: #222222;
     color: white;
     min-width: 80px;
     max-width: 80px;

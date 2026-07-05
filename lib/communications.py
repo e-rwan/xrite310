@@ -1,4 +1,5 @@
 # lib/communication.py
+
 from PySide6.QtCore import QObject, Signal
 import serial
 import threading

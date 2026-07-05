@@ -1,90 +1,65 @@
+#lib/gamma.py
+
 from dataclasses import dataclass
 from typing import List, NamedTuple, Optional
 from statistics import mean
 
 STEP_VALUE = 0.15
 HIGH_PCT = 0.2
-LOW_PCT=0.20
+LOW_PCT = 0.20
 MIN_DIFF = 0.03
 NUM_STEPS = 4
 
+
 class Range(NamedTuple):
-	"""
-	class to contain search or gamma range
-	"""
+	"""Class to contain search or gamma range."""
 	start: int
 	end: int
 
 
 @dataclass
 class GammaReading:
-	"""
-	Class to contains values related to gamma readings
-	"""
+	"""Class containing values related to gamma readings."""
 	gamma: float
 	step_value: float
 	d_min: float
 	d_max: float
 	search_range: Range
 	gamma_range: Range
+	ld: Optional[float] = None
+	md: Optional[float] = None
+	hd: Optional[float] = None
 
-	# str for tooltip
 	def __str__(self):
+		ld = "--" if self.ld is None else f"{self.ld:.2f}"
+		md = "--" if self.md is None else f"{self.md:.2f}"
+		hd = "--" if self.hd is None else f"{self.hd:.2f}"
 		return (
-			f"gamma         : {self.gamma:.2f}\n"
-			f"step_value    : {self.step_value:.2f}\n"
-			f"d_min         : {self.d_min:.2f}\n"
-			f"d_max         : {self.d_max:.2f}\n"
-			f"search_range  : [{self.search_range.start} - {self.search_range.end}]\n"
-			f"gamma_range   : [{self.gamma_range.start} - {self.gamma_range.end}]"
+			f"gamma\t\t\t: {self.gamma:.2f}\n"
+			f"step_value\t\t: {self.step_value:.2f}\n"
+			f"d_min\t\t\t: {self.d_min:.2f}\n"
+			f"d_max\t\t\t: {self.d_max:.2f}\n"
+			f"LD\t\t\t: {ld}\n"
+			f"MD\t\t\t: {md}\n"
+			f"HD\t\t\t: {hd}\n"
+			f"search_range\t\t: [{self.search_range.start} - {self.search_range.end}]\n"
+			f"gamma_range\t\t: [{self.gamma_range.start} - {self.gamma_range.end}]"
 		)
 
 
+
 class GammaAnalyzer:
-	"""Analyzes gamma values from a set of density readings.
-
-	This class contains methods for determining ranges involved in gamma analysis, computing gamma values,
-	and generating comprehensive gamma readings from provided data. It is designed to handle lists of density
-	values and returns calculated metrics like gamma, search ranges, and linearity through acceleration minima.
-
-	Methods:
-		get_search_range(values: List[float], low_pct: float, high_pct: float) -> Range:
-			Calculates the index range for gamma analysis based on specified sensitivity percentages.
-
-		get_gamma_range(values: List[float], search_range: Range, num_steps: int) -> Range:
-			Identifies the most linear range within the search bounds by minimizing acceleration sums.
-
-		get_derivatives(values: List[float]) -> List[float]:
-			Computes central derivatives for a list of density values indicating changes between consecutive points.
-
-		get_gamma(gamma_range: Range, values: List[float], step_value: float) -> float:
-			Computes the gamma value based on the slope of values over a determined range.
-
-		get_gamma_from_values(values: List[float], step_value: float, low_pct: float, high_pct: float, min_diff: float) -> GammaReading:
-			Produces a detailed gamma reading encapsulating gamma computation and related metrics based on density values.
-
-		get_gamma_from_curve_data(data: dict[str, list[Optional[float]]], visible_channels: list[str], step_value: float) -> dict[str, GammaReading]:
-			Processes curve data to compute gamma readings for each visible channel, including overall and referenced metrics.
-	"""
+	"""Analyzes gamma values from a set of density readings."""
 
 	def get_search_range(self, values: List[float], low_pct=LOW_PCT, high_pct=HIGH_PCT) -> Range:
-		""" Calculates the index range to search for gamma analysis.
-		Args:
-			values (List[float]): List of density values.
-			low_pct (float, optional): Lower percentage for the range. Defaults to 0.20.
-			high_pct (float, optional): Upper percentage for the range. Defaults to 0.20.
-		Returns:
-			Range: A tuple with start and end index for the search range.
-		"""
+		"""Calculates the index range to search for gamma analysis."""
 		d_min = min(values)
 		d_max = max(values)
 
 		min_threshold = d_min + low_pct * (d_max - d_min)
 		max_threshold = d_max - high_pct * (d_max - d_min)
 
-		# first index > min_threshold
 		start = next((i for i, v in enumerate(values) if v > min_threshold), 0)
-		# first index > max_threshold -1
 		end = next((i for i, v in enumerate(values) if v > max_threshold), len(values)) - 1
 
 		start = max(1, start)
@@ -92,16 +67,8 @@ class GammaAnalyzer:
 
 		return Range(start, end)
 
-
-	def get_gamma_range(self, values: List[float], search_range: Range, num_steps = NUM_STEPS) -> Range:
-		""" Find the most linear range (minimum sum of acceleration).
-		Args:
-			values (List[float]): List of density values.
-			gamma_range (Range): Index range to compute gamma in.
-			step_value (float, optional): Number of step in range
-		Returns:
-			float: The computed gamma value.
-		"""
+	def get_gamma_range(self, values: List[float], search_range: Range, num_steps=NUM_STEPS) -> Range:
+		"""Finds the most linear range using the minimum sum of acceleration."""
 		speeds = self.get_derivatives(values)
 		accelerations = self.get_derivatives(speeds)
 
@@ -115,15 +82,9 @@ class GammaAnalyzer:
 				best_start = i
 
 		return Range(best_start, best_start + num_steps)
-		
 
 	def get_derivatives(self, values: List[float]) -> List[float]:
-		""" Calculates central derivatives of a list
-		Args:
-			values (List[float]): List of density values.
-		Returns:
-			derivatives (List[float]): List of centered derivatives
-		"""
+		"""Calculates central derivatives of a list."""
 		n = len(values)
 		derivatives = [0.0]
 		for i in range(1, n - 1):
@@ -131,43 +92,40 @@ class GammaAnalyzer:
 		derivatives.append(derivatives[-1])
 		return derivatives
 
-
-	def get_gamma(self, gamma_range, values, step_value: float = STEP_VALUE):
-		""" Computes the gamma value from the slope of the computed gamma range.
-		Args:
-			gamma_range (Range): Index range to compute gamma in.
-			values (List[float]): List of density values.
-			step_value (float, optional): Step size used for gamma calculation. Defaults to STEP_VALUE.
-		Returns:
-			float: The computed gamma value.
-		"""
+	def get_gamma(self, gamma_range: Range, values: List[float], step_value: float = STEP_VALUE) -> float:
+		"""Computes the gamma value from the slope of the computed gamma range."""
 		delta_y = values[gamma_range.end] - values[gamma_range.start]
 		delta_x = (gamma_range.end - gamma_range.start) * step_value
-		gamma = delta_y / delta_x
-		return gamma
+		return delta_y / delta_x
+
+	def get_density_for_step(self, values: List[float], step: int) -> Optional[float]:
+		"""Returns the density for a 21-step wedge step number."""
+		index = 21 - step
+		if 0 <= index < len(values):
+			return values[index]
+		return None
+
+	def mean_optional(self, values: List[Optional[float]]) -> Optional[float]:
+		"""Returns the mean of non-None values."""
+		filtered = [value for value in values if value is not None]
+		return mean(filtered) if filtered else None
 
 
-	def get_gamma_from_values(self, values: List[float], step_value: float = STEP_VALUE, low_pct=LOW_PCT, high_pct=HIGH_PCT, min_diff= MIN_DIFF) -> GammaReading:
-		""" Computes a detailed gamma reading from a list of values.
-		Args:
-			values (List[float]): List of density values.
-			step_value (float, optional): Step size used for gamma calculation. Defaults to STEP_VALUE.
-			low_pct (float, optional): Lower percentage the search range. Defaults to 0.20.
-			high_pct (float, optional): Upper percentage for the search range. Defaults to 0.20.
-			min_diff (float, optional):  Minimum difference threshold to ignore flat segments. Defaults to 0.03.
-		Returns:
-			GammaReading: Object including gamma data, ranges, and delta.
-		Raises:
-			ValueError: If fewer than 4 values are provided.
-		"""
+	def get_gamma_from_values(
+		self,
+		values: List[float],
+		step_value: float = STEP_VALUE,
+		low_pct=LOW_PCT,
+		high_pct=HIGH_PCT,
+		min_diff=MIN_DIFF,
+	) -> GammaReading:
+		"""Computes a detailed gamma reading from a list of values."""
 		if len(values) < 4:
 			raise ValueError("At least 4 values are needed")
 
 		search_range = self.get_search_range(values, low_pct, high_pct)
 		gamma_range = self.get_gamma_range(values, search_range)
-
 		gamma = self.get_gamma(gamma_range, values, step_value)
-
 
 		return GammaReading(
 			gamma=gamma,
@@ -175,19 +133,20 @@ class GammaAnalyzer:
 			d_min=min(values),
 			d_max=max(values),
 			search_range=Range(search_range.start + 1, search_range.end + 1),
-			gamma_range=Range(gamma_range.start + 1, gamma_range.end + 1)
+			gamma_range=Range(gamma_range.start + 1, gamma_range.end + 1),
+			ld=self.get_density_for_step(values, 14),
+			md=self.get_density_for_step(values, 8),
+			hd=self.get_density_for_step(values, 4),
 		)
 
 
-	def get_gamma_from_curve_data(self, data: dict[str, list[Optional[float]]], visible_channels: list[str], step_value: float = STEP_VALUE) -> dict[str, GammaReading]:
-		"""Computes gamma readings from curve data for each visible channel and combined channels.
-		Args:
-			data (dict[str, list[Optional[float]]]): Curve data with keys like 'meas_a', 'ref_a'.
-			visible_channels (list[str]): Channels to include in the analysis.
-			step_value (float, optional): Step size used for gamma calculation. Defaults to STEP_VALUE.
-		Returns:
-			dict[str, GammaReading]: Gamma results per channel, and for 'all' and 'ref' if applicable.
-		"""
+	def get_gamma_from_curve_data(
+		self,
+		data: dict[str, list[Optional[float]]],
+		visible_channels: list[str],
+		step_value: float = STEP_VALUE,
+	) -> dict[str, GammaReading]:
+		"""Computes gamma readings from curve data for each visible channel and combined channels."""
 		if not visible_channels:
 			return {}
 
@@ -198,17 +157,13 @@ class GammaAnalyzer:
 			meas_key = f"meas_{ch}"
 			ref_key = f"ref_{ch}"
 			meas_vals: list[float] = [v for v in data.get(meas_key, []) if isinstance(v, (int, float))]
-			ref_vals: list[float]  = [v for v in data.get(ref_key, []) if isinstance(v, (int, float))]
+			ref_vals: list[float] = [v for v in data.get(ref_key, []) if isinstance(v, (int, float))]
 
 			if len(meas_vals) >= 4:
-				reading = self.get_gamma_from_values(meas_vals, step_value=step_value)
-				results[ch] = reading
+				results[ch] = self.get_gamma_from_values(meas_vals, step_value=step_value)
 			if len(ref_vals) >= 4:
-				reading = self.get_gamma_from_values(ref_vals, step_value=step_value)
-				results_ref[ch] = reading
-				
-		# assign computed values to a GammaReading object for current measurments and ref
-		# current measurments
+				results_ref[ch] = self.get_gamma_from_values(ref_vals, step_value=step_value)
+
 		if results:
 			visible_results = [gr for ch, gr in results.items() if ch in visible_channels]
 			results["all"] = GammaReading(
@@ -218,14 +173,18 @@ class GammaAnalyzer:
 				d_max=mean(gr.d_max for gr in visible_results),
 				search_range=Range(
 					round(mean(gr.search_range.start for gr in visible_results)),
-					round(mean(gr.search_range.end for gr in visible_results))
+					round(mean(gr.search_range.end for gr in visible_results)),
 				),
 				gamma_range=Range(
 					round(mean(gr.gamma_range.start for gr in visible_results)),
-					round(mean(gr.gamma_range.end for gr in visible_results))
-				)
+					round(mean(gr.gamma_range.end for gr in visible_results)),
+				),
+				ld=self.mean_optional([gr.ld for gr in visible_results]),
+				md=self.mean_optional([gr.md for gr in visible_results]),
+				hd=self.mean_optional([gr.hd for gr in visible_results]),
 			)
-		# ref
+
+
 		if results_ref:
 			visible_results = [gr for ch, gr in results_ref.items() if ch in visible_channels]
 			results["ref"] = GammaReading(
@@ -235,16 +194,20 @@ class GammaAnalyzer:
 				d_max=mean(gr.d_max for gr in visible_results),
 				search_range=Range(
 					round(mean(gr.search_range.start for gr in visible_results)),
-					round(mean(gr.search_range.end for gr in visible_results))
+					round(mean(gr.search_range.end for gr in visible_results)),
 				),
 				gamma_range=Range(
 					round(mean(gr.gamma_range.start for gr in visible_results)),
-					round(mean(gr.gamma_range.end for gr in visible_results))
-				)
+					round(mean(gr.gamma_range.end for gr in visible_results)),
+				),
+				ld=self.mean_optional([gr.ld for gr in visible_results]),
+				md=self.mean_optional([gr.md for gr in visible_results]),
+				hd=self.mean_optional([gr.hd for gr in visible_results]),
 			)
 
-		# merge resuts with results_ref
+
 		for k, v in results_ref.items():
 			results[f"ref_{k}"] = v
 
 		return results
+

@@ -1,6 +1,21 @@
 # ui/history_charts.py
+
 from utils.plot_utils import draw_curve_graph, build_curve_data
 from lib.gamma import GammaAnalyzer
+
+
+def _get_ref_gamma_reading_value(values, attribute: str):
+    """Returns a gamma-reading attribute from a reference curve."""
+    reading = GammaAnalyzer().get_gamma_from_values(values)
+    return getattr(reading, attribute, None)
+
+
+def _get_ref_contrast_value(values):
+    """Returns the reference contrast value computed as HD - LD."""
+    reading = GammaAnalyzer().get_gamma_from_values(values)
+    if reading.hd is None or reading.ld is None:
+        return None
+    return reading.hd - reading.ld
 
 
 def draw_gamma_plot(ax, canvas, analyzer, ref, dates):
@@ -46,7 +61,7 @@ def draw_gamma_plot(ax, canvas, analyzer, ref, dates):
         ax=ax,
         canvas=canvas,
         curves=curves,
-        title="Évolution des gammas",
+        title="Évolution du gamma",
         xlabel="Date",
         ylabel="Gamma",
         nb_x_ticks=len(dates)
@@ -115,5 +130,126 @@ def draw_dmax_plot(ax, canvas, analyzer, ref, dates):
         title="Dmax RGB",
         xlabel="Date",
         ylabel="Dmax",
+        nb_x_ticks=len(dates)
+    )
+
+
+def draw_d11_plot(ax, canvas, analyzer, ref, dates):
+    """Plots the evolution of D-11 values over time.
+
+    This function generates and plots the density of density 11 (D-11) evolution
+    based on measurement data compared to reference levels.
+
+    Args:
+        ax: The matplotlib axis to plot on.
+        canvas: The canvas associated with the plot for rendering updates.
+        analyzer: The HistoryAnalyzer instance to get D11 data from.
+        ref: The reference measurement set for comparison.
+        dates: A list of date strings corresponding to each measurement.
+    """
+    curves = build_curve_data(
+        analyzer_func=analyzer.get_d11_evolution,
+        dates=dates,
+        ref=ref,
+        ref_func=lambda values: values[10],
+        ylabel="D11",
+        linestyle="-",
+        ref_linestyle="--"
+    )
+    draw_curve_graph(
+        ax=ax,
+        canvas=canvas,
+        curves=curves,
+        title="D11 RGB",
+        xlabel="Date",
+        ylabel="D11",
+        nb_x_ticks=len(dates)
+    )
+
+
+def draw_ld_plot(ax, canvas, analyzer, ref, dates):
+    """Plots the evolution of LD values over time."""
+    curves = build_curve_data(
+        analyzer_func=analyzer.get_ld_evolution,
+        dates=dates,
+        ref=ref,
+        ref_func=lambda values: _get_ref_gamma_reading_value(values, "ld"),
+        ylabel="LD",
+        linestyle="-",
+        ref_linestyle="--"
+    )
+    draw_curve_graph(
+        ax=ax,
+        canvas=canvas,
+        curves=curves,
+        title="LD RGB",
+        xlabel="Date",
+        ylabel="LD",
+        nb_x_ticks=len(dates)
+    )
+
+
+def draw_md_plot(ax, canvas, analyzer, ref, dates):
+    """Plots the evolution of MD values over time."""
+    curves = build_curve_data(
+        analyzer_func=analyzer.get_md_evolution,
+        dates=dates,
+        ref=ref,
+        ref_func=lambda values: _get_ref_gamma_reading_value(values, "md"),
+        ylabel="MD",
+        linestyle="-",
+        ref_linestyle="--"
+    )
+    draw_curve_graph(
+        ax=ax,
+        canvas=canvas,
+        curves=curves,
+        title="MD RGB",
+        xlabel="Date",
+        ylabel="MD",
+        nb_x_ticks=len(dates)
+    )
+
+
+def draw_hd_plot(ax, canvas, analyzer, ref, dates):
+    """Plots the evolution of HD values over time."""
+    curves = build_curve_data(
+        analyzer_func=analyzer.get_hd_evolution,
+        dates=dates,
+        ref=ref,
+        ref_func=lambda values: _get_ref_gamma_reading_value(values, "hd"),
+        ylabel="HD",
+        linestyle="-",
+        ref_linestyle="--"
+    )
+    draw_curve_graph(
+        ax=ax,
+        canvas=canvas,
+        curves=curves,
+        title="HD RGB",
+        xlabel="Date",
+        ylabel="HD",
+        nb_x_ticks=len(dates)
+    )
+
+
+def draw_contrast_plot(ax, canvas, analyzer, ref, dates):
+    """Plots the evolution of contrast values over time."""
+    curves = build_curve_data(
+        analyzer_func=analyzer.get_contrast_evolution,
+        dates=dates,
+        ref=ref,
+        ref_func=_get_ref_contrast_value,
+        ylabel="Contrast",
+        linestyle="-",
+        ref_linestyle="--"
+    )
+    draw_curve_graph(
+        ax=ax,
+        canvas=canvas,
+        curves=curves,
+        title="Contrast RGB",
+        xlabel="Date",
+        ylabel="Contrast",
         nb_x_ticks=len(dates)
     )

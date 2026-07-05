@@ -1,4 +1,4 @@
-# lib/curves.py
+# lib/densito.py
 
 from PySide6.QtCore import QObject, Signal
 from typing import Union

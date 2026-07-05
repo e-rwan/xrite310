@@ -1,7 +1,8 @@
 # utils/plot_utils.py
 
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
+
 
 from model.measurement_set import MeasurementSet
 
@@ -48,11 +49,12 @@ def build_curve_data(
     analyzer_func: Callable[[], dict],
     dates: list[str],
     ref: Optional[MeasurementSet] = None,
-    ref_func: Optional[Callable[[list[float]], float]] = None,
+    ref_func: Optional[Callable[[list[float]], Optional[float]]] = None,
     ylabel: str = "",
     linestyle: str = "-",
     ref_linestyle: str = "--"
 ) -> dict:
+
     """
     Generates data for drawing a curve graph.
 
@@ -61,6 +63,8 @@ def build_curve_data(
         dates (list[str]): List of strings representing dates for the X-axis.
         ref (MeasurementSet, optional): Reference measurement set.
         ref_func (Callable, optional): Function to extract a reference value (min, max, etc.).
+        	Can return None when no valid reference value is available.
+
         ylabel (str): Label for the Y-axis.
         linestyle (str): Line style for the primary curve.
         ref_linestyle (str): Line style for the reference curve.
@@ -101,8 +105,10 @@ def draw_curve_graph(
     ylabel: str = "Y",
     show_legend: bool = True,
     nb_x_ticks: int = 21,
-    allow_negative: bool = False
+    allow_negative: bool = False,
+    x_tick_labels: Optional[Sequence[str]] = None,
 ):
+
     """
     Draws multiple curves on a given matplotlib axis.
 
@@ -116,21 +122,27 @@ def draw_curve_graph(
         show_legend (bool): Flag to indicate if the legend should be shown.
         nb_x_ticks (int): Number of ticks on the X-axis.
         allow_negative (bool): Allows negative ticks if true.
+        x_tick_labels (Optional[Sequence[str]]): Custom labels for numeric X-axis ticks.
 
     Returns:
         None
     """
     ax.clear()
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
+    ax.set_title(title, pad=12)
+    ax.set_xlabel(xlabel, labelpad=10)
     ax.set_ylabel(ylabel)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.2)
 
     global_ymin, global_ymax = float("inf"), float("-inf")
+    global_xmin, global_xmax = float("inf"), float("-inf")
     x_is_string = False
     x_labels = None
 
+    # Safe default margins so labels/titles are visible even on empty graphs.
+    ax.figure.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.16)
+
     curve_count = 0
+
     for label, data in curves.items():
         raw_y_vals = data.get("y", [])
         raw_x_vals = data.get("x", [i + 1 for i in range(len(raw_y_vals))])
@@ -156,8 +168,11 @@ def draw_curve_graph(
 
         global_ymin = min(global_ymin, min(y_vals))
         global_ymax = max(global_ymax, max(y_vals))
+        global_xmin = min(global_xmin, min(x_vals))
+        global_xmax = max(global_xmax, max(x_vals))
 
         curve_count += 1
+
     
     if curve_count == 0:
         print(f"No data to draw in graph titled: {title}")
@@ -193,11 +208,32 @@ def draw_curve_graph(
 
     if x_is_string and x_labels:
         ax.set_xticks(range(len(x_labels)))
-        ax.set_xticklabels(x_labels, rotation=45)
+        ax.set_xticklabels(x_labels, rotation=45, ha='right')
+        ax.set_xlim(-0.5, len(x_labels) - 0.5)
+        ax.figure.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.24)
     else:
-        ax.set_xlim(1, nb_x_ticks)
-        ax.set_xticks(range(1, nb_x_ticks + 1))
+        x_min = min(1, int(global_xmin)) if global_xmin != float("inf") else 1
+        x_max = max(nb_x_ticks, int(global_xmax)) if global_xmax != float("-inf") else nb_x_ticks
+        ax.set_xlim(x_min - 0.5, x_max + 0.5)
+
+        if x_tick_labels:
+            tick_count = len(x_tick_labels)
+            tick_start = 1
+            tick_end = max(x_max, tick_count)
+            ticks = list(range(tick_start, tick_end + 1))
+            labels = [x_tick_labels[i - 1] if 1 <= i <= tick_count else str(i) for i in ticks]
+            has_multiline_labels = any("\n" in str(label) for label in labels)
+            ax.set_xticks(ticks)
+            ax.set_xticklabels(labels, rotation=0 if has_multiline_labels else None, ha='center')
+        else:
+            has_multiline_labels = False
+            ax.set_xticks(range(x_min, x_max + 1))
+
+        ax.figure.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.24 if has_multiline_labels else 0.16)
+
+    ax.tick_params(axis='x', pad=6)
 
     if show_legend:
         ax.legend()
     canvas.draw()
+
