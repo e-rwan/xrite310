@@ -1,14 +1,15 @@
 # main.py
 
 import sys
-import os
+from pathlib import Path
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
 from PySide6.QtCore import Qt
 from ui.main_window import MainWindow
-from constants import UNIQUE_APP_ID, ICON_PATH
+from constants import UNIQUE_APP_ID, ICON_PATH, BASE_PATH
+
 
 
 def is_another_instance_running():
@@ -33,7 +34,7 @@ def is_another_instance_running():
 
 def create_single_instance_server(main_window):
     """Creates a server to enforce single instance of the application.
-
+    
     Removes any existing server with the same ID and creates a new one.
     Listens for incoming connections and raises the main window if the 
     "raise" message is received.
@@ -71,14 +72,18 @@ def create_single_instance_server(main_window):
     return server
 
 
-def load_stylesheet(app, path: str):
+def load_stylesheet(app, path: str | Path):
     """Loads a stylesheet from a file and applies it to the application.
 
     Args:
         app (QApplication): The application instance to style.
-        path (str): Path to the stylesheet file.
+        path (str | Path): Path to the stylesheet file.
     """
-    with open(path, "r") as f:
+    stylesheet_path = Path(path)
+    if not stylesheet_path.is_absolute():
+        stylesheet_path = BASE_PATH / stylesheet_path
+
+    with open(stylesheet_path, "r", encoding="utf-8") as f:
         app.setStyleSheet(f.read())
 
 

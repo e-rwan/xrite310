@@ -1,6 +1,5 @@
 # ui/main_window.py
 
-
 import os
 import sys
 import subprocess
@@ -12,6 +11,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QTabBar, QFileDialog,
 )
 
+
 from ui.densito_ui import CurveWidget
 from ui.communications_ui import CommunicationWidget
 from ui.history_ui import HistoryWidget
@@ -20,7 +20,10 @@ from utils.md_viewer import MarkdownWebViewer
 from lib.communications import DensitometerReader
 from constants import MEASURES_PATH, ICON_PATH, DOC_MANUAL_PATH, DOC_XRITEMANUAL_PATH
 
+
+
 class MainWindow(QMainWindow):
+
     def __init__(self):
         """Initializes the main window with menus and tabs.
 
@@ -83,6 +86,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 600)
 
         self.tabs = QTabWidget()
+
         self.tabs.setTabsClosable(True)
 
         self.curve_widgets = []
@@ -119,7 +123,6 @@ class MainWindow(QMainWindow):
 
     def add_new_curve_tab(self, title="Sensito"):
         """Adds a new curve tab to the tab widget.
-
         Args:
             title (str): Title for the new tab.
         """
@@ -135,7 +138,6 @@ class MainWindow(QMainWindow):
 
     def close_tab(self, index):
         """Closes a specified tab.
-
         Args:
             index (int): Index of the tab to close.
         """
@@ -191,6 +193,7 @@ class MainWindow(QMainWindow):
 
 
     def show_about_dialog(self):
+
         """Displays the 'About' dialog with application information."""
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.about(self, "À propos", "Densitomètre X-Rite 310\nVersion 1.0")

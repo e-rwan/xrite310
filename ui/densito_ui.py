@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
 
 from PySide6.QtCore import Qt, QEvent, QPointF, QRectF
 
-from PySide6.QtGui import QStandardItemModel, QPainter, QColor, QPen, QPolygonF
+from PySide6.QtGui import QStandardItemModel, QPainter, QColor, QPen, QPolygonF, QShortcut, QKeySequence
+
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 
@@ -412,8 +413,10 @@ class CurveWidget(QWidget):
 		self.right_widget = QWidget()
 		self._setup_plot()
 		self._setup_controls()
+		self._setup_shortcuts()
 
 		self.selected_index = 0
+
 		self.update_input_labels()
 		self.update_plot()
 
@@ -827,13 +830,65 @@ class CurveWidget(QWidget):
 		self._get_measure_field_for_row(self.selected_index).setFocus()
 
 
+	def _is_measure_input(self, widget):
+		"""Returns True when the widget belongs to the current measurement inputs."""
+		return any(widget in fields for fields in self.meas_inputs.values())
 
-	def update_measure_direction(self):
-		"""Updates the current row when the measurement direction is toggled."""
-		if not any(field.text().strip() for fields in self.meas_inputs.values() for field in fields):
-			self.selected_index = self._get_measure_boundary_index()
+
+	def _move_selected_measure_row(self, offset):
+		"""Moves the active measurement row and focuses the matching input."""
+		next_index = self.selected_index + offset
+		if not 0 <= next_index < 21:
+			return
+		self.selected_index = next_index
 		self._highlight_selected_row()
 		self._focus_selected_measure_input()
+
+
+	def _cycle_plot_tab(self):
+		"""Switches to the next graph tab, looping back to the first one."""
+		count = self.plot_tabs.count()
+		if count <= 1:
+			return
+		self.plot_tabs.setCurrentIndex((self.plot_tabs.currentIndex() + 1) % count)
+
+
+	def _cycle_plot_tab_backward(self):
+		"""Switches to the previous graph tab, looping back to the last one."""
+		count = self.plot_tabs.count()
+		if count <= 1:
+			return
+		self.plot_tabs.setCurrentIndex((self.plot_tabs.currentIndex() - 1) % count)
+
+
+	def _setup_shortcuts(self):
+		"""Registers keyboard shortcuts local to the densito widget."""
+		self.shortcut_toggle_reverse = QShortcut(QKeySequence("Ctrl+I"), self)
+		self.shortcut_toggle_reverse.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+		self.shortcut_toggle_reverse.activated.connect(self.reverse_measure_checkbox.toggle)
+
+		self.shortcut_cycle_plot_tab = QShortcut(QKeySequence("Ctrl+Tab"), self)
+		self.shortcut_cycle_plot_tab.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+		self.shortcut_cycle_plot_tab.activated.connect(self._cycle_plot_tab)
+
+		self.shortcut_cycle_plot_tab_backward = QShortcut(QKeySequence("Ctrl+Shift+Tab"), self)
+		self.shortcut_cycle_plot_tab_backward.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+		self.shortcut_cycle_plot_tab_backward.activated.connect(self._cycle_plot_tab_backward)
+
+
+		self.shortcut_cycle_plot_tab_backward_alias = QShortcut(QKeySequence("Ctrl+Backtab"), self)
+		self.shortcut_cycle_plot_tab_backward_alias.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+		self.shortcut_cycle_plot_tab_backward_alias.activated.connect(self._cycle_plot_tab_backward)
+
+		self.shortcut_clear_meas = QShortcut(QKeySequence("Ctrl+L"), self)
+		self.shortcut_clear_meas.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+		self.shortcut_clear_meas.activated.connect(lambda: self.clear_inputs("meas"))
+
+
+	def update_measure_direction(self):
+		"""Updates only the measurement direction without moving the current focus."""
+		self._highlight_selected_row()
+
 
 
 	def clear_inputs(self, toclear="all", reset_selectors=True):
@@ -1372,14 +1427,15 @@ class CurveWidget(QWidget):
 
 
 	def eventFilter(self, obj, event):
-		"""Handles focus events for user input fields.
+		"""Handles focus and keyboard navigation for user input fields.
 
 		This function detects when a text input field gains focus and updates the
-		currently selected index. It highlights the row corresponding to this index.
+		currently selected index. It also lets the up/down arrows move between
+		measurement rows when the focus is already inside a measurement input.
 
 		Args:
 			obj: The object that triggered the event.
-			event: The event triggered (specifically looking for focus in events).
+			event: The event triggered.
 
 		Returns:
 			bool: Whether the event is consumed by the filter.
@@ -1391,6 +1447,13 @@ class CurveWidget(QWidget):
 						self.selected_index = group[key].index(obj)
 						self._highlight_selected_row()
 						break
+		elif event.type() == QEvent.Type.KeyPress and self._is_measure_input(obj):
+			if event.key() == Qt.Key.Key_Up:
+				self._move_selected_measure_row(-1)
+				return True
+			if event.key() == Qt.Key.Key_Down:
+				self._move_selected_measure_row(1)
+				return True
 		return super().eventFilter(obj, event)
 
 
