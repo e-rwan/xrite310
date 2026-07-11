@@ -42,7 +42,7 @@ chmod +x install.sh
 
 ---
 
-## ▶Launch the Application
+## Launch the Application
 
 ```bash
 python main.py
